@@ -31,6 +31,7 @@ model User {
   createdAt    DateTime     @default(now())
   list         UserSeries[]
   seasonWatches SeasonWatch[]
+  episodeWatches EpisodeWatch[]
 }
 
 model Series {
@@ -44,6 +45,7 @@ model Series {
   updatedAt    DateTime     @updatedAt
   trackedBy    UserSeries[]
   seasonWatches SeasonWatch[]
+  episodeWatches EpisodeWatch[]
 }
 
 model UserSeries {
@@ -73,4 +75,19 @@ model SeasonWatch {
 
   @@unique([userId, seriesId, seasonNumber])
   @@index([userId])
+}
+
+model EpisodeWatch {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  series        Series   @relation(fields: [seriesId], references: [tmdbId], onDelete: Cascade)
+  seriesId      Int
+  seasonNumber  Int
+  episodeNumber Int
+  watchedAt     DateTime @default(now())
+
+  @@unique([userId, seriesId, seasonNumber, episodeNumber])
+  @@index([userId])
+  @@index([seriesId])
 }

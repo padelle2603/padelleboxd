@@ -6,8 +6,10 @@ import Image from "next/image";
 import { prisma } from "@/lib/db";
 import { trendingTv, posterUrl } from "@/lib/tmdb";
 import { formatShortDate, formatAirDate } from "@/lib/constants";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { getUpcomingForUser } from "@/lib/upcoming";
+import { getContinueWatching } from "@/lib/continue-watching";
+import ContinueWatching from "@/components/home/ContinueWatching";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,8 @@ export default async function HomePage() {
     getCurrentUser(),
   ]);
   const upcoming = await getUpcomingForUser(user);
+  const continueWatching =
+    user && isActiveUser(user) ? await getContinueWatching(user) : [];
 
   const trendingCards: PosterCardSeries[] = trending.map((tv) => ({
     tmdbId: tv.id,
@@ -67,6 +71,8 @@ export default async function HomePage() {
           </span>
         </div>
       </section>
+
+      {continueWatching.length > 0 && <ContinueWatching initial={continueWatching} />}
 
       {upcoming.length > 0 && (
         <section>

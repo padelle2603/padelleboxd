@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [entries, seasonWatches] = await Promise.all([
+  const [entries, seasonWatches, episodeWatches] = await Promise.all([
     prisma.userSeries.findMany({
       where: { userId: user!.id },
       include: { series: true },
@@ -26,6 +26,10 @@ export async function GET() {
     prisma.seasonWatch.findMany({
       where: { userId: user!.id },
       select: { seriesId: true, seasonNumber: true },
+    }),
+    prisma.episodeWatch.findMany({
+      where: { userId: user!.id },
+      select: { seriesId: true, seasonNumber: true, episodeNumber: true },
     }),
   ]);
 
@@ -36,16 +40,31 @@ export async function GET() {
     watchedSeasonsBySeries.set(w.seriesId, list);
   }
 
+  const watchedEpisodesBySeries = new Map<number, string[]>();
+  for (const w of episodeWatches) {
+    const list = watchedEpisodesBySeries.get(w.seriesId) ?? [];
+    list.push(`${w.seasonNumber}:${w.episodeNumber}`);
+    watchedEpisodesBySeries.set(w.seriesId, list);
+  }
+
   const rows: (string | number | null)[][] = [
-    ["tmdb_id", "title", "status", "rating", "watched_seasons", "added_at", "updated_at"],
+    ["tmdb_id", "title", "status", "rating", "watched_seasons", "watched_episodes", "added_at", "updated_at"],
     ...entries.map((e) => {
       const seasons = watchedSeasonsBySeries.get(e.seriesId) ?? [];
+      const episodes = watchedEpisodesBySeries.get(e.seriesId) ?? [];
       return [
         e.series.tmdbId,
         e.series.name,
         e.status,
         e.rating,
         seasons.length > 0 ? seasons.sort((a, b) => a - b).join(";") : "",
+        episodes.length > 0
+          ? episodes.sort((a, b) => {
+              const [as, ae] = a.split(":").map(Number);
+              const [bs, be] = b.split(":").map(Number);
+              return as - bs || ae - be;
+            }).join(";")
+          : "",
         e.createdAt.toISOString(),
         e.updatedAt.toISOString(),
       ];

@@ -36,7 +36,7 @@ export default async function SeriesPage({ params }: Props) {
   const [tv, user] = await Promise.all([getTvDetails(id), getCurrentUser()]);
   if (!tv) notFound();
 
-  const [tracked, counts, watchedSeasons] = await Promise.all([
+  const [tracked, counts, watchedSeasons, watchedEpisodes] = await Promise.all([
     prisma.userSeries.findMany({
       where: { seriesId: id },
       include: {
@@ -54,6 +54,12 @@ export default async function SeriesPage({ params }: Props) {
       ? prisma.seasonWatch.findMany({
           where: { userId: user.id, seriesId: id },
           select: { seasonNumber: true },
+        })
+      : Promise.resolve([]),
+    user
+      ? prisma.episodeWatch.findMany({
+          where: { userId: user.id, seriesId: id },
+          select: { seasonNumber: true, episodeNumber: true },
         })
       : Promise.resolve([]),
   ]);
@@ -236,13 +242,15 @@ export default async function SeriesPage({ params }: Props) {
         <section>
           <h2 className="mb-3 text-lg font-bold text-zinc-100">Seasons</h2>
           <p className="mb-4 text-xs text-zinc-500">
-            Mark a season as watched once you finish it.
+            Open a season to tick off episodes you&apos;ve seen. Mark the season as watched once you
+            finish it.
           </p>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40">
             <SeasonManager
               tmdbId={id}
               seasons={tv.seasons}
               watchedSeasons={watchedSeasonNumbers}
+              watchedEpisodes={watchedEpisodes}
               canEdit={!!user && isActiveUser(user)}
             />
           </div>
