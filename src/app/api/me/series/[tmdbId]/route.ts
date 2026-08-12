@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser as requireUser } from "@/lib/auth";
+import { getTvDetails, getSeasonEpisodes, todayDateStr } from "@/lib/tmdb";
 
 const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
 
@@ -61,7 +62,58 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
     data: { status: finalStatus, rating: finalRating },
   });
 
-  return NextResponse.json({ entry });
+  let seasonsWatched = 0;
+  let episodesWatched = 0;
+
+  if (status === "WATCHED") {
+    try {
+      const today = todayDateStr();
+      const tv = await getTvDetails(seriesId);
+      const releasedSeasons =
+        tv?.seasons
+          ?.filter((s) => s.season_number >= 0 && s.air_date && s.air_date <= today)
+          .map((s) => s.season_number) ?? [];
+
+      for (const season of releasedSeasons) {
+        await prisma.seasonWatch.upsert({
+          where: {
+            userId_seriesId_seasonNumber: { userId: user!.id, seriesId, seasonNumber: season },
+          },
+          update: {},
+          create: { userId: user!.id, seriesId, seasonNumber: season },
+        });
+        seasonsWatched++;
+
+        const episodes = await getSeasonEpisodes(seriesId, season);
+        for (const ep of episodes) {
+          if (ep.air_date && ep.air_date <= today) {
+            await prisma.episodeWatch.upsert({
+              where: {
+                userId_seriesId_seasonNumber_episodeNumber: {
+                  userId: user!.id,
+                  seriesId,
+                  seasonNumber: season,
+                  episodeNumber: ep.episode_number,
+                },
+              },
+              update: {},
+              create: {
+                userId: user!.id,
+                seriesId,
+                seasonNumber: season,
+                episodeNumber: ep.episode_number,
+              },
+            });
+            episodesWatched++;
+          }
+        }
+      }
+    } catch {
+      // best effort: even if TMDB is unreachable the series is marked watched
+    }
+  }
+
+  return NextResponse.json({ entry, seasonsWatched, episodesWatched });
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/series/[tmdbId]">) {
