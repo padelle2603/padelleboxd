@@ -84,15 +84,3 @@ Supabase pauses free projects after 7 days without any API call. A Vercel Cron
 which performs a DB read so the project never goes idle. The route is protected by
 `CRON_SECRET` (set it as a Sensitive environment variable); Vercel sends it
 automatically as a Bearer token on cron invocations.
-
-### Custom domain
-
-`padelleboxd.it` is available. Register it at any registrar, then either:
-
-1. **Vercel DNS** (recommended): in the dashboard → Project → Settings → Domains →
-   add the domain → follow the nameserver instructions Vercel shows (replace the
-   registrar's nameservers with Vercel's). SSL is issued automatically.
-2. **CNAME at the registrar** (if you keep your provider's DNS): point `padelleboxd.it`
-   (and `www`) to `cname.vercel-dns.com`, then add the domain in Vercel → Settings → Domains.
-
-Set `SESSION_SECRET` to a long random string, validate `ADMIN_ALLOWED_IPS`, and keep `TMDB_API_KEY` and `DATABASE_URL` only in environment variables.
