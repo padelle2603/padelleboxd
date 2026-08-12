@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { posterUrl } from "@/lib/tmdb";
-import MyListManager from "@/components/MyListManager";
+import MyListManager from "@/components/list/MyListManager";
 import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
 import Link from "next/link";
 

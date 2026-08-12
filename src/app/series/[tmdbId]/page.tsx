@@ -12,9 +12,9 @@ import {
   daysUntil,
   stillUrl,
 } from "@/lib/tmdb";
-import AddToMyList from "@/components/AddToMyList";
-import SeasonManager from "@/components/SeasonManager";
-import StatusBadge from "@/components/StatusBadge";
+import AddToMyList from "@/components/list/AddToMyList";
+import SeasonManager from "@/components/series/SeasonManager";
+import StatusBadge from "@/components/series/StatusBadge";
 import { STATUS_TEXT_COLOR, formatAirDate } from "@/lib/constants";
 import type { SeriesStatus } from "@/lib/constants";
 

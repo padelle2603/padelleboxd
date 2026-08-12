@@ -33,8 +33,6 @@ postcss.config.mjs
 prisma.config.ts
 tsconfig.json
 vercel.json
-CLAUDE.md
-AGENTS.md
 
 # debug
 npm-debug.log*

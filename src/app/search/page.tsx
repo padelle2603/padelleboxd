@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import SearchBar from "@/components/SearchBar";
-import PosterCard, { type PosterCardSeries } from "@/components/PosterCard";
+import SearchBar from "@/components/layout/SearchBar";
+import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
 import { searchTv, posterUrl } from "@/lib/tmdb";
 
 export const metadata: Metadata = { title: "Search" };

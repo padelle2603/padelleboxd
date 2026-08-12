@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import LogoutButton from "@/components/LogoutButton";
-import Logo from "@/components/Logo";
+import LogoutButton from "@/components/layout/LogoutButton";
+import Logo from "@/components/layout/Logo";
 
 export default async function Header() {
   const user = await getCurrentUser();

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDate } from "@/lib/constants";
-import StatusBadge from "@/components/StatusBadge";
+import StatusBadge from "@/components/series/StatusBadge";
 import type { SeriesStatus } from "@/lib/constants";
 
 export type PosterCardSeries = {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { posterUrl } from "@/lib/tmdb";
-import PosterCard, { type PosterCardSeries } from "@/components/PosterCard";
+import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
 import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";

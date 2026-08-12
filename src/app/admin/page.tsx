@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, isAdminRequestAllowed } from "@/lib/auth";
-import AdminUsers from "@/components/AdminUsers";
+import AdminUsers from "@/components/admin/AdminUsers";
 
 export const metadata: Metadata = { title: "Admin" };
 

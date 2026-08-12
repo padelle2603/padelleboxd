@@ -1,7 +1,7 @@
 import Link from "next/link";
-import SearchBar from "@/components/SearchBar";
-import PosterCard, { type PosterCardSeries } from "@/components/PosterCard";
-import Logo from "@/components/Logo";
+import SearchBar from "@/components/layout/SearchBar";
+import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
+import Logo from "@/components/layout/Logo";
 import Image from "next/image";
 import { prisma } from "@/lib/db";
 import { trendingTv, posterUrl } from "@/lib/tmdb";
