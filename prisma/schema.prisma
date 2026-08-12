@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+enum Status {
+  WATCHED
+  ABANDONED
+  ON_HOLD
+  PLANNED
+}
+
+model User {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  email        String       @unique
+  passwordHash String
+  role         Role         @default(PENDING)
+  createdAt    DateTime     @default(now())
+  list         UserSeries[]
+  seasonWatches SeasonWatch[]
+}
+
+model Series {
+  tmdbId       Int          @id
+  name         String
+  overview     String?
+  posterPath   String?
+  backdropPath String?
+  firstAirDate String?
+  tmdbRating   Float?
+  updatedAt    DateTime     @updatedAt
+  trackedBy    UserSeries[]
+  seasonWatches SeasonWatch[]
+}
+
+model UserSeries {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  series    Series   @relation(fields: [seriesId], references: [tmdbId], onDelete: Cascade)
+  seriesId  Int
+  status    Status
+  rating    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, seriesId])
+  @@index([userId, status])
+  @@index([seriesId])
+}
+
+model SeasonWatch {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  series       Series   @relation(fields: [seriesId], references: [tmdbId], onDelete: Cascade)
+  seriesId     Int
+  seasonNumber Int
+  watchedAt    DateTime @default(now())
+
+  @@unique([userId, seriesId, seasonNumber])
+  @@index([userId])
+}
