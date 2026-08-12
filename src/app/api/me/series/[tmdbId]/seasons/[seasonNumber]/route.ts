@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { getSeasonEpisodes } from "@/lib/tmdb";
 
 type Ctx = { params: Promise<{ tmdbId: string; seasonNumber: string }> };
 
@@ -38,10 +39,44 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       update: {},
       create: { userId: user!.id, seriesId, seasonNumber: season },
     });
-    return NextResponse.json({ entry });
+
+    let episodesWatched = 0;
+    try {
+      const episodes = await getSeasonEpisodes(seriesId, season);
+      for (const ep of episodes) {
+        await prisma.episodeWatch.upsert({
+          where: {
+            userId_seriesId_seasonNumber_episodeNumber: {
+              userId: user!.id,
+              seriesId,
+              seasonNumber: season,
+              episodeNumber: ep.episode_number,
+            },
+          },
+          update: {},
+          create: {
+            userId: user!.id,
+            seriesId,
+            seasonNumber: season,
+            episodeNumber: ep.episode_number,
+          },
+        });
+        episodesWatched++;
+      }
+    } catch {
+      // best effort: even if TMDB is unreachable the season is marked watched
+    }
+
+    return NextResponse.json({
+      entry,
+      episodesWatched,
+    });
   }
 
   await prisma.seasonWatch.deleteMany({
+    where: { userId: user!.id, seriesId, seasonNumber: season },
+  });
+  await prisma.episodeWatch.deleteMany({
     where: { userId: user!.id, seriesId, seasonNumber: season },
   });
   return NextResponse.json({ unwatched: true });
