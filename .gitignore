@@ -24,6 +24,17 @@
 .DS_Store
 *.pem
 
+# project config (kept out of the public repo on purpose)
+eslint.config.mjs
+next.config.ts
+package.json
+package-lock.json
+postcss.config.mjs
+prisma.config.ts
+tsconfig.json
+vercel.json
+CLAUDE.md
+
 # debug
 npm-debug.log*
 yarn-debug.log*
