@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 import { isActiveUser, type CurrentUser } from "@/lib/auth";
-import { getTvDetails, posterUrl, daysUntil } from "@/lib/tmdb";
+import {
+  getTvDetails,
+  getSeasonEpisodes,
+  posterUrl,
+  daysUntil,
+  type TmdbEpisode,
+} from "@/lib/tmdb";
 
 export type UpcomingCard = {
   tmdbId: number;
@@ -19,37 +25,71 @@ const MAX_JUST_AIRED_DAYS = 7;
 export async function getUpcomingForUser(user: CurrentUser | null | undefined): Promise<UpcomingCard[]> {
   if (!user || !isActiveUser(user)) return [];
 
-  const [tracked, watched] = await Promise.all([
+  const [tracked, episodeWatches] = await Promise.all([
     prisma.userSeries.findMany({
-      where: { userId: user.id, status: { not: "ABANDONED" } },
+      where: { userId: user.id, status: { in: ["WATCHED", "PLANNED"] } },
       include: { series: true },
       orderBy: { updatedAt: "desc" },
-      take: 20,
     }),
-    prisma.seasonWatch.findMany({ where: { userId: user.id } }),
+    prisma.episodeWatch.findMany({ where: { userId: user.id } }),
   ]);
 
-  const watchedKey = new Set(watched.map((w) => `${w.seriesId}:${w.seasonNumber}`));
+  const watchedEpisodes = new Set(
+    episodeWatches.map((w) => `${w.seriesId}:${w.seasonNumber}:${w.episodeNumber}`)
+  );
 
   const results = await Promise.all(
     tracked.map(async (t) => {
       try {
         const tv = await getTvDetails(t.seriesId);
-        const ep = tv && tv.next_episode_to_air;
-        if (!tv || !ep || !ep.air_date) return null;
-        const d = daysUntil(ep.air_date);
-        if (d === null) return null;
-        if (d > MAX_AHEAD_DAYS || d < -MAX_JUST_AIRED_DAYS) return null;
-        if (watchedKey.has(`${t.seriesId}:${ep.season_number}`)) return null;
+        if (!tv) return null;
+
+        const next = tv.next_episode_to_air;
+        const last = tv.last_episode_to_air;
+        if (!next && !last) return null;
+
+        const seasonNums = new Set<number>();
+        if (next?.season_number != null) {
+          seasonNums.add(next.season_number);
+          seasonNums.add(next.season_number + 1);
+        } else if (last?.season_number != null) {
+          seasonNums.add(last.season_number + 1);
+        }
+
+        const candidates: TmdbEpisode[] = [];
+        for (const n of seasonNums) {
+          try {
+            candidates.push(...(await getSeasonEpisodes(t.seriesId, n)));
+          } catch {
+            // ignore seasons that fail to load
+          }
+        }
+
+        const nextUp = candidates
+          .filter((ep) => {
+            if (!ep.air_date) return false;
+            const d = daysUntil(ep.air_date);
+            if (d === null) return false;
+            if (d > MAX_AHEAD_DAYS || d < -MAX_JUST_AIRED_DAYS) return false;
+            if (watchedEpisodes.has(`${t.seriesId}:${ep.season_number}:${ep.episode_number}`)) {
+              return false;
+            }
+            return true;
+          })
+          .sort((a, b) => (a.air_date! < b.air_date! ? -1 : 1))
+          .slice(0, 1)[0];
+
+        if (!nextUp || !nextUp.air_date) return null;
+
         return {
           tmdbId: t.seriesId,
           name: t.series.name,
           posterUrl: posterUrl(t.series.posterPath),
-          seasonNumber: ep.season_number,
-          episodeNumber: ep.episode_number,
-          episodeName: ep.name,
-          airDate: ep.air_date,
-          daysUntil: d,
+          seasonNumber: nextUp.season_number,
+          episodeNumber: nextUp.episode_number,
+          episodeName: nextUp.name,
+          airDate: nextUp.air_date,
+          daysUntil: daysUntil(nextUp.air_date)!,
         } as UpcomingCard;
       } catch {
         return null;
