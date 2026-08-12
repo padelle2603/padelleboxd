@@ -24,6 +24,15 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
 
   const myEntry = user ? trackedBy.find((t) => t.userId === user.id) ?? null : null;
 
+  const myWatchedSeasons = user
+    ? (
+        await prisma.seasonWatch.findMany({
+          where: { userId: user.id, seriesId: id },
+          select: { seasonNumber: true },
+        })
+      ).map((w) => w.seasonNumber)
+    : [];
+
   return NextResponse.json({
     details: {
       id: details.id,
@@ -38,6 +47,13 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
       numberOfEpisodes: details.number_of_episodes,
       tmdbRating: details.vote_average,
       tmdbVoteCount: details.vote_count,
+      seasons:
+        details.seasons?.map((s) => ({
+          seasonNumber: s.season_number,
+          episodeCount: s.episode_count,
+          airDate: s.air_date,
+          overview: s.overview,
+        })) ?? [],
     },
     trackedCounts: {
       WATCHED: trackedBy.filter((t) => t.status === "WATCHED").length,
@@ -54,5 +70,6 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
     myEntry: myEntry
       ? { status: myEntry.status, rating: myEntry.rating }
       : null,
+    myWatchedSeasons,
   });
 }

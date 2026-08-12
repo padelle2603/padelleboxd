@@ -57,7 +57,10 @@ export async function POST(req: NextRequest) {
   }
 
   const token = await createSessionToken(user);
-  const response = NextResponse.json({ user: { id: user.id, username: user.username, role: user.role } });
+  const response = NextResponse.json({
+    user: { id: user.id, username: user.username, role: user.role },
+    token,
+  });
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return response;
 }

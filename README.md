@@ -6,7 +6,9 @@ A personal TV-series tracker in the style of Serializd / Trakt.tv. Users can reg
 
 - **Next.js 16 (App Router)** + TypeScript + Tailwind CSS v4
 - **Prisma 7 + PostgreSQL (Supabase)** (`prisma-client` generator, driver adapter `@prisma/adapter-pg`)
-- **Auth**: bcrypt password hashing + signed JWT session cookie (`jose`)
+- **Auth**: bcrypt password hashing + signed JWT session cookie (`jose`). The same JWT is also
+  returned from `POST /api/auth/login` and accepted as `Authorization: Bearer <token>`, so
+  native/last-party clients (see the mobile app) can log in without cookies.
 - **Validation**: zod
 - All business logic lives behind **REST API routes** (under `src/app/api`) so they can be reused later by a mobile app.
 
@@ -57,6 +59,19 @@ src/
   components/            # Header, PosterCard, SearchBar, list managers, forms, AdminShortcut
   lib/                   # db (Prisma singleton), auth (session), tmdb, constants, upcoming
 ```
+
+## Mobile app
+
+There is a native client in [`mobile/`](mobile/README.md) (Expo / React Native, TypeScript).
+It consumes the REST API: search and series pages are public, while the personal list uses
+the bearer token returned by login. Point it at any deployed API with `EXPO_PUBLIC_API_URL`.
+
+Backend endpoints added for the mobile client (also usable from the web):
+
+- `GET /api/series/trending` — trending this week + global stats (public)
+- `GET /api/series/:id` — now also returns `seasons` and, for the session user, `myWatchedSeasons`
+- `POST /api/auth/login` — additionally returns the signed JWT in the response body so native
+  clients can send `Authorization: Bearer <token>` instead of relying on cookies
 
 ## Deployment notes
 

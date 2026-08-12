@@ -33,9 +33,19 @@ export async function verifySessionToken(token: string): Promise<{ sub: string }
   }
 }
 
+export async function getRequestToken(): Promise<string | null> {
+  const h = await headers();
+  const auth = h.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    const token = auth.slice("Bearer ".length).trim();
+    return token || null;
+  }
+  return null;
+}
+
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value ?? (await getRequestToken());
   if (!token) return null;
   const session = await verifySessionToken(token);
   if (!session) return null;
