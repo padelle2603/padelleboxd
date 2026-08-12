@@ -17,7 +17,7 @@ export type ContinueWatchingEntry = {
 export async function getContinueWatching(user: CurrentUser): Promise<ContinueWatchingEntry[]> {
   const [entries, seasonWatches, episodeWatches] = await Promise.all([
     prisma.userSeries.findMany({
-      where: { userId: user.id, status: "WATCHING" },
+      where: { userId: user.id, status: { in: ["WATCHED", "WATCHING"] } },
       include: { series: true },
       orderBy: { updatedAt: "desc" },
     }),
