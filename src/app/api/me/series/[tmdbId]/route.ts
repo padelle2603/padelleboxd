@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser as requireUser } from "@/lib/auth";
 
-const STATUSES = ["WATCHED", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
+const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
 
 const updateSchema = z
   .object({

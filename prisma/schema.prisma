@@ -15,6 +15,7 @@ enum Role {
 }
 
 enum Status {
+  WATCHING
   WATCHED
   ABANDONED
   ON_HOLD
