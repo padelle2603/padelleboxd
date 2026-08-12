@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { getTvDetails, tvToSeriesData, posterUrl } from "@/lib/tmdb";
 
-const STATUSES = ["WATCHED", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
+const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
 
 const addSchema = z.object({
   tmdbId: z.number().int().positive(),

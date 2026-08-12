@@ -1,6 +1,6 @@
 # PadelleBoxd
 
-A personal TV-series tracker in the style of Serializd / Trakt.tv. Users can register, get approved by an administrator, and then track TV series with a status (Watched, Abandoned, On Hold, Planned) and a 1–10 rating. Lists are publicly visible to guests. Data comes from the TMDB API (TV series only).
+A personal TV-series tracker in the style of Serializd / Trakt.tv. Users can register, get approved by an administrator, and then track TV series with a status (Watched, Watching, Abandoned, On Hold, Planned) and a 1–10 rating. Lists are publicly visible to guests. Data comes from the TMDB API (TV series only).
 
 ## Stack
 

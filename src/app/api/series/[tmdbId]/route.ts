@@ -41,6 +41,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
     },
     trackedCounts: {
       WATCHED: trackedBy.filter((t) => t.status === "WATCHED").length,
+      WATCHING: trackedBy.filter((t) => t.status === "WATCHING").length,
       ABANDONED: trackedBy.filter((t) => t.status === "ABANDONED").length,
       ON_HOLD: trackedBy.filter((t) => t.status === "ON_HOLD").length,
       PLANNED: trackedBy.filter((t) => t.status === "PLANNED").length,

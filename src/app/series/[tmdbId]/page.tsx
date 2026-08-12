@@ -252,7 +252,7 @@ export default async function SeriesPage({ params }: Props) {
       <section>
         <h2 className="mb-3 text-lg font-bold text-zinc-100">Who&apos;s watching this</h2>
         <div className="mb-4 flex flex-wrap gap-2 text-xs">
-          {(["WATCHED", "ABANDONED", "ON_HOLD", "PLANNED"] as SeriesStatus[]).map((s) => (
+          {(["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as SeriesStatus[]).map((s) => (
             <span key={s} className={`rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 font-medium ${STATUS_TEXT_COLOR[s]}`}>
               {s.replaceAll("_", " ")} · {countMap[s] ?? 0}
             </span>

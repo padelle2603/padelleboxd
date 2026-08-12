@@ -41,6 +41,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/users/[user
     createdAt: user.createdAt,
     counts: {
       WATCHED: entries.filter((e) => e.status === "WATCHED").length,
+      WATCHING: entries.filter((e) => e.status === "WATCHING").length,
       ABANDONED: entries.filter((e) => e.status === "ABANDONED").length,
       ON_HOLD: entries.filter((e) => e.status === "ON_HOLD").length,
       PLANNED: entries.filter((e) => e.status === "PLANNED").length,
