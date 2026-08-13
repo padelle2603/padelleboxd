@@ -69,7 +69,8 @@ export default async function HomePage() {
             )}
           </div>
           <p className="mb-4 -mt-2 text-xs text-zinc-500">
-            Episodes airing or recently aired. They leave this section once you watch the episode.
+            The first unreleased episode for each of your watched and watching series, airing
+            within the next 30 days. Entries leave this section once you watch the episode.
           </p>
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {upcoming.map((u) => (

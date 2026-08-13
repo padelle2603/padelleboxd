@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
 import { getTvDetails, getSeasonEpisodes, posterUrl } from "@/lib/tmdb";
@@ -15,10 +15,7 @@ export type ContinueWatchingEntry = {
   seasonProgress: number;
 };
 
-const REVALIDATE = 1800;
-
-const getContinueWatchingForUserId = unstable_cache(
-  async (userId: string) => {
+const getContinueWatchingForUserId = cache(async (userId: string) => {
     const [entries, seasonWatches, episodeWatches] = await Promise.all([
       prisma.userSeries.findMany({
         where: { userId, status: { in: ["WATCHED", "WATCHING"] } },
@@ -86,10 +83,7 @@ const getContinueWatchingForUserId = unstable_cache(
     );
 
     return results.filter((r): r is ContinueWatchingEntry => r !== null);
-  },
-  [],
-  { revalidate: REVALIDATE }
-);
+});
 
 export async function getContinueWatching(
   user: CurrentUser

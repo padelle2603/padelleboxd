@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { isActiveUser, type CurrentUser } from "@/lib/auth";
 import {
@@ -21,18 +21,15 @@ export type UpcomingCard = {
 };
 
 const MAX_AHEAD_DAYS = 30;
-const MAX_JUST_AIRED_DAYS = 7;
-const REVALIDATE = 1800;
 
 function inWindow(d: number | null): boolean {
-  return d !== null && d <= MAX_AHEAD_DAYS && d >= -MAX_JUST_AIRED_DAYS;
+  return d !== null && d >= 0 && d <= MAX_AHEAD_DAYS;
 }
 
-const getUpcomingForUserId = unstable_cache(
-  async (userId: string) => {
+const getUpcomingForUserId = cache(async (userId: string) => {
     const [tracked, episodeWatches] = await Promise.all([
       prisma.userSeries.findMany({
-        where: { userId, status: { in: ["WATCHED", "PLANNED"] } },
+        where: { userId, status: { in: ["WATCHED", "WATCHING"] } },
         include: { series: true },
         orderBy: { updatedAt: "desc" },
       }),
@@ -104,10 +101,7 @@ const getUpcomingForUserId = unstable_cache(
     return results
       .filter((r): r is UpcomingCard => r !== null)
       .sort((a, b) => a.daysUntil - b.daysUntil);
-  },
-  [],
-  { revalidate: REVALIDATE }
-);
+});
 
 export async function getUpcomingForUser(
   user: CurrentUser | null | undefined
