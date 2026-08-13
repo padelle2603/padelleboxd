@@ -3,10 +3,9 @@ import { hashPassword } from "../src/lib/password";
 
 async function main() {
   const username = process.env.ADMIN_USERNAME ?? "admin";
-  const email = process.env.ADMIN_EMAIL ?? "admin@padelleboxd.local";
   const password = process.env.ADMIN_PASSWORD;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
     console.log(`Seed: admin user "${username}" already exists, skipping.`);
     return;
@@ -21,7 +20,6 @@ async function main() {
   await prisma.user.create({
     data: {
       username,
-      email,
       passwordHash,
       role: "ADMIN",
     },

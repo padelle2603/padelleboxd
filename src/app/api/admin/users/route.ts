@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const onlyPending = req.nextUrl.searchParams.get("pending") === "true";
   const users = await prisma.user.findMany({
     where: onlyPending ? { role: "PENDING" } : {},
-    select: { id: true, username: true, email: true, role: true, createdAt: true },
+    select: { id: true, username: true, role: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const target = await prisma.user.update({
       where: { id: userId },
       data: { role: "ADMIN" },
-      select: { id: true, username: true, email: true, role: true, createdAt: true },
+      select: { id: true, username: true, role: true, createdAt: true },
     });
     return NextResponse.json({ user: target });
   }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   const target = await prisma.user.update({
     where: { id: userId },
     data: { role },
-    select: { id: true, username: true, email: true, role: true, createdAt: true },
+    select: { id: true, username: true, role: true, createdAt: true },
   });
 
   return NextResponse.json({ user: target });

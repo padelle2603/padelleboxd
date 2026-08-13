@@ -11,7 +11,6 @@ export default function AuthForm({
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +33,7 @@ export default function AuthForm({
     try {
       const body = isLogin
         ? { identifier, password }
-        : { username, email, password };
+        : { username, password };
       const res = await fetch(
         isLogin ? "/api/auth/login" : "/api/auth/register",
         {
@@ -56,7 +55,6 @@ export default function AuthForm({
           "Account created! Your account is waiting for an administrator to approve it. You'll be able to log in once approved."
         );
         setUsername("");
-        setEmail("");
         setPassword("");
         setConfirm("");
       }
@@ -70,7 +68,7 @@ export default function AuthForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       {isLogin ? (
-        <Field label="Username or email" id="identifier">
+        <Field label="Username" id="identifier">
           <input
             id="identifier"
             type="text"
@@ -90,17 +88,6 @@ export default function AuthForm({
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
-              className="auth-input"
-            />
-          </Field>
-          <Field label="Email" id="email">
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
               className="auth-input"
             />
           </Field>

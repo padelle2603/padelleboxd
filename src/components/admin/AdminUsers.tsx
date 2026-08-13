@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 type AdminUser = {
   id: string;
   username: string;
-  email: string;
   role: "ADMIN" | "APPROVED" | "PENDING" | "REJECTED";
   createdAt: string;
 };
@@ -76,7 +75,6 @@ export default function AdminUsers({ initialUsers }: { initialUsers: AdminUser[]
               <li key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-zinc-100">{u.username}</p>
-                  <p className="truncate text-sm text-zinc-500">{u.email}</p>
                 </div>
                 <span className="text-xs text-zinc-600">
                   {new Date(u.createdAt).toLocaleDateString("en-US", {
@@ -115,7 +113,6 @@ export default function AdminUsers({ initialUsers }: { initialUsers: AdminUser[]
             <li key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-zinc-100">{u.username}</p>
-                <p className="truncate text-sm text-zinc-500">{u.email}</p>
               </div>
               <span
                 className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
