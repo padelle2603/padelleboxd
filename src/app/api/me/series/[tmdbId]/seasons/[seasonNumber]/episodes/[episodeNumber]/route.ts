@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth";
 
 type Ctx = {
   params: Promise<{
@@ -11,10 +11,9 @@ type Ctx = {
 };
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  const user = await getCurrentUser();
-  if (!isActiveUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const { tmdbId, seasonNumber, episodeNumber } = await ctx.params;
   const seriesId = Number(tmdbId);
@@ -41,7 +40,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       : null;
 
   const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
@@ -51,33 +50,33 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     await prisma.episodeWatch.upsert({
       where: {
         userId_seriesId_seasonNumber_episodeNumber: {
-          userId: user!.id,
+          userId: user.id,
           seriesId,
           seasonNumber: season,
           episodeNumber: episode,
         },
       },
       update: {},
-      create: { userId: user!.id, seriesId, seasonNumber: season, episodeNumber: episode },
+      create: { userId: user.id, seriesId, seasonNumber: season, episodeNumber: episode },
     });
 
     if (seasonEpisodeCount != null && episode >= seasonEpisodeCount) {
       await prisma.seasonWatch.upsert({
         where: {
-          userId_seriesId_seasonNumber: { userId: user!.id, seriesId, seasonNumber: season },
+          userId_seriesId_seasonNumber: { userId: user.id, seriesId, seasonNumber: season },
         },
         update: {},
-        create: { userId: user!.id, seriesId, seasonNumber: season },
+        create: { userId: user.id, seriesId, seasonNumber: season },
       });
     }
     return NextResponse.json({ watched: true });
   }
 
   await prisma.episodeWatch.deleteMany({
-    where: { userId: user!.id, seriesId, seasonNumber: season, episodeNumber: episode },
+    where: { userId: user.id, seriesId, seasonNumber: season, episodeNumber: episode },
   });
   await prisma.seasonWatch.deleteMany({
-    where: { userId: user!.id, seriesId, seasonNumber: season },
+    where: { userId: user.id, seriesId, seasonNumber: season },
   });
   return NextResponse.json({ watched: false });
 }

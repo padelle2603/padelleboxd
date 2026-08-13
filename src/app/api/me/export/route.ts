@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth";
 
 function csvCell(value: string | number | null): string {
   const s = value == null ? "" : String(value);
@@ -12,23 +11,22 @@ function toCsv(rows: (string | number | null)[][]): string {
 }
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!isActiveUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const [entries, seasonWatches, episodeWatches] = await Promise.all([
     prisma.userSeries.findMany({
-      where: { userId: user!.id },
+      where: { userId: user.id },
       include: { series: true },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.seasonWatch.findMany({
-      where: { userId: user!.id },
+      where: { userId: user.id },
       select: { seriesId: true, seasonNumber: true },
     }),
     prisma.episodeWatch.findMany({
-      where: { userId: user!.id },
+      where: { userId: user.id },
       select: { seriesId: true, seasonNumber: true, episodeNumber: true },
     }),
   ]);

@@ -1,14 +1,32 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cache } from "react";
+import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/db";
 
 export const SESSION_COOKIE = "pb_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
+const DEV_FALLBACK_SECRET = "padelleboxd-dev-secret";
+const MIN_SECRET_LENGTH = 16;
 
 function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET ?? "padelleboxd-dev-secret";
-  return new TextEncoder().encode(secret);
+  const secret = process.env.SESSION_SECRET?.trim();
+
+  if (process.env.NODE_ENV === "production") {
+    if (!secret || secret === "change-me-to-a-long-random-string") {
+      throw new Error(
+        "SESSION_SECRET is not configured. Set a long random value before starting in production."
+      );
+    }
+    if (secret.length < MIN_SECRET_LENGTH) {
+      throw new Error(
+        `SESSION_SECRET is too short (${secret.length} chars). Use at least ${MIN_SECRET_LENGTH} random characters.`
+      );
+    }
+    return new TextEncoder().encode(secret);
+  }
+
+  return new TextEncoder().encode(secret || DEV_FALLBACK_SECRET);
 }
 
 export async function createSessionToken(user: {
@@ -91,4 +109,22 @@ export async function isAdminRequestAllowed(
   if (ips.length === 0) return true;
   const ip = await requestIp();
   return ip !== null && ips.includes(ip);
+}
+
+export type AuthResult<T> = { ok: true; user: T } | { ok: false; response: NextResponse };
+
+export async function requireActiveUser(): Promise<AuthResult<CurrentUser>> {
+  const user = await getCurrentUser();
+  if (!isActiveUser(user)) {
+    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  return { ok: true, user: user! };
+}
+
+export async function requireAdmin(): Promise<AuthResult<CurrentUser>> {
+  const user = await getCurrentUser();
+  if (!(await isAdminRequestAllowed(user?.role))) {
+    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+  return { ok: true, user: user! };
 }

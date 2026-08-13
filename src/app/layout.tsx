@@ -34,8 +34,27 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AdminShortcut />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-zinc-800/80 py-6 text-center text-xs text-zinc-600">
-          PadelleBoxd ·
-          <span className="text-zinc-500"> Data provided by TMDB. Built with Next.js.</span>
+          <p className="mb-2">
+            <a
+              href="https://www.themoviedb.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block opacity-80 transition hover:opacity-100"
+              aria-label="The Movie Database (TMDB)"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/tmdb-logo.svg" alt="The Movie Database (TMDB)" width={90} height={12} />
+            </a>
+          </p>
+          <p>
+            PadelleBoxd ·
+            <span className="text-zinc-500">
+              {" "}
+              Data provided by TMDB. This product uses the TMDB API but is not endorsed or
+              certified by TMDB.
+            </span>
+          </p>
+          <p className="mt-1 text-zinc-700">Built with Next.js.</p>
         </footer>
       </body>
     </html>

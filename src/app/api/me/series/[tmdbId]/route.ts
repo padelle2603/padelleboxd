@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser as requireUser } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth";
 import { getTvDetails, getSeasonEpisodes, todayDateStr } from "@/lib/tmdb";
 
 const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
@@ -14,10 +14,9 @@ const updateSchema = z
   .refine((d) => d.status || d.rating !== undefined, "Nothing to update");
 
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/[tmdbId]">) {
-  const user = await getCurrentUser();
-  if (!requireUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const { tmdbId } = await ctx.params;
   const seriesId = Number(tmdbId);
@@ -37,7 +36,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
   const { status, rating } = parsed.data;
 
   const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
@@ -58,7 +57,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
   }
 
   const entry = await prisma.userSeries.update({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
     data: { status: finalStatus, rating: finalRating },
   });
 
@@ -77,10 +76,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
       for (const season of releasedSeasons) {
         await prisma.seasonWatch.upsert({
           where: {
-            userId_seriesId_seasonNumber: { userId: user!.id, seriesId, seasonNumber: season },
+            userId_seriesId_seasonNumber: { userId: user.id, seriesId, seasonNumber: season },
           },
           update: {},
-          create: { userId: user!.id, seriesId, seasonNumber: season },
+          create: { userId: user.id, seriesId, seasonNumber: season },
         });
         seasonsWatched++;
 
@@ -90,7 +89,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
             await prisma.episodeWatch.upsert({
               where: {
                 userId_seriesId_seasonNumber_episodeNumber: {
-                  userId: user!.id,
+                  userId: user.id,
                   seriesId,
                   seasonNumber: season,
                   episodeNumber: ep.episode_number,
@@ -98,7 +97,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
               },
               update: {},
               create: {
-                userId: user!.id,
+                userId: user.id,
                 seriesId,
                 seasonNumber: season,
                 episodeNumber: ep.episode_number,
@@ -117,10 +116,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/series/[tmdbId]">) {
-  const user = await getCurrentUser();
-  if (!requireUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const { tmdbId } = await ctx.params;
   const seriesId = Number(tmdbId);
@@ -129,14 +127,14 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/serie
   }
 
   const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
   }
 
   await prisma.userSeries.delete({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
   });
 
   return NextResponse.json({ message: "Removed from your list" });

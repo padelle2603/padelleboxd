@@ -1,6 +1,8 @@
 # PadelleBoxd
 
-A personal TV-series tracker in the style of Serializd / Trakt.tv. Users can register, get approved by an administrator, and then track TV series with a status (Watched, Watching, Abandoned, On Hold, Planned) and a 1–10 rating. Lists are publicly visible to guests. Data comes from the TMDB API (TV series only).
+A personal TV-series tracker. Users can register, get approved by an administrator, and then track TV series with a status (Watched, Watching, Abandoned, On Hold, Planned) and a 1–10 rating. Lists are publicly visible to guests. Data comes from the TMDB API (TV series only).
+
+> **Attribution**: this product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Stack
 
@@ -86,7 +88,7 @@ The database is hosted on Supabase (PostgreSQL, SSL required). The app is server
 2. Set these project environment variables (Project → Settings → Environment Variables, for all environments):
    - `DATABASE_URL` — the Supabase pooler string from `.env`
    - `TMDB_API_KEY`
-   - `SESSION_SECRET` — long random string
+   - `SESSION_SECRET` — long random string (at least 16 chars; the app refuses to start in production without a valid one)
    - `ADMIN_ALLOWED_IPS` — your IP(s) if you want the panel locked to your machine
 3. No build step is required: `postinstall` runs `prisma generate` (the client is gitignored) and `vercel.json` pins the Next.js build. Migrations are one-time — apply schema changes locally with `npx prisma migrate deploy` before pushing.
 

@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isAdminRequestAllowed } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
 const actionSchema = z.object({
   userId: z.string().min(1),
   action: z.enum(["APPROVE", "REJECT", "PROMOTE"]),
 });
 
-async function denyUnlessAdmin(): Promise<NextResponse | null> {
-  const user = await getCurrentUser();
-  return (await isAdminRequestAllowed(user?.role))
-    ? null
-    : NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
 export async function GET(req: NextRequest) {
-  const denied = await denyUnlessAdmin();
-  if (denied) return denied;
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const onlyPending = req.nextUrl.searchParams.get("pending") === "true";
   const users = await prisma.user.findMany({
@@ -30,8 +23,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = await denyUnlessAdmin();
-  if (denied) return denied;
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const admin = auth.user;
 
   const body = await req.json().catch(() => null);
   const parsed = actionSchema.safeParse(body);
@@ -41,21 +35,40 @@ export async function POST(req: NextRequest) {
 
   const { userId, action } = parsed.data;
 
-  if (action === "PROMOTE") {
-    const target = await prisma.user.update({
-      where: { id: userId },
-      data: { role: "ADMIN" },
-      select: { id: true, username: true, role: true, createdAt: true },
-    });
-    return NextResponse.json({ user: target });
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, role: true, createdAt: true },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const role = action === "APPROVE" ? "APPROVED" : "REJECTED";
-  const target = await prisma.user.update({
+  if (action === "PROMOTE" && target.role === "ADMIN") {
+    return NextResponse.json({ error: "User is already an admin" }, { status: 400 });
+  }
+
+  if (action !== "PROMOTE" && target.role === "ADMIN") {
+    if (target.id === admin.id) {
+      return NextResponse.json(
+        { error: "You cannot change your own admin role." },
+        { status: 400 }
+      );
+    }
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        { error: "Cannot demote the last remaining admin." },
+        { status: 400 }
+      );
+    }
+  }
+
+  const role = action === "PROMOTE" ? "ADMIN" : action === "APPROVE" ? "APPROVED" : "REJECTED";
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: { role },
     select: { id: true, username: true, role: true, createdAt: true },
   });
 
-  return NextResponse.json({ user: target });
+  return NextResponse.json({ user: updated });
 }

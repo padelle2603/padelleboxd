@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth";
 import { getTvDetails, tvToSeriesData, posterUrl } from "@/lib/tmdb";
 
 const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
@@ -13,14 +13,13 @@ const addSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!isActiveUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const status = req.nextUrl.searchParams.get("status");
   const entries = await prisma.userSeries.findMany({
-    where: { userId: user!.id, ...(status ? { status: status as never } : {}) },
+    where: { userId: user.id, ...(status ? { status: status as never } : {}) },
     include: { series: true },
     orderBy: { updatedAt: "desc" },
   });
@@ -43,10 +42,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!isActiveUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const body = await req.json().catch(() => null);
   const parsed = addSchema.safeParse(body);
@@ -74,9 +72,9 @@ export async function POST(req: NextRequest) {
   }
 
   const entry = await prisma.userSeries.upsert({
-    where: { userId_seriesId: { userId: user!.id, seriesId: tmdbId } },
+    where: { userId_seriesId: { userId: user.id, seriesId: tmdbId } },
     update: { status, rating },
-    create: { userId: user!.id, seriesId: tmdbId, status, rating },
+    create: { userId: user.id, seriesId: tmdbId, status, rating },
   });
 
   return NextResponse.json({ entry }, { status: 201 });

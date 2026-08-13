@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth";
 import { getSeasonEpisodes } from "@/lib/tmdb";
 
 type Ctx = { params: Promise<{ tmdbId: string; seasonNumber: string }> };
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  const user = await getCurrentUser();
-  if (!isActiveUser(user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireActiveUser();
+  if (!auth.ok) return auth.response;
+  const user = auth.user;
 
   const { tmdbId, seasonNumber } = await ctx.params;
   const seriesId = Number(tmdbId);
@@ -25,7 +24,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user!.id, seriesId } },
+    where: { userId_seriesId: { userId: user.id, seriesId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
@@ -34,10 +33,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (watched) {
     const entry = await prisma.seasonWatch.upsert({
       where: {
-        userId_seriesId_seasonNumber: { userId: user!.id, seriesId, seasonNumber: season },
+        userId_seriesId_seasonNumber: { userId: user.id, seriesId, seasonNumber: season },
       },
       update: {},
-      create: { userId: user!.id, seriesId, seasonNumber: season },
+      create: { userId: user.id, seriesId, seasonNumber: season },
     });
 
     let episodesWatched = 0;
@@ -47,7 +46,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         await prisma.episodeWatch.upsert({
           where: {
             userId_seriesId_seasonNumber_episodeNumber: {
-              userId: user!.id,
+              userId: user.id,
               seriesId,
               seasonNumber: season,
               episodeNumber: ep.episode_number,
@@ -55,7 +54,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           },
           update: {},
           create: {
-            userId: user!.id,
+            userId: user.id,
             seriesId,
             seasonNumber: season,
             episodeNumber: ep.episode_number,
@@ -74,10 +73,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   await prisma.seasonWatch.deleteMany({
-    where: { userId: user!.id, seriesId, seasonNumber: season },
+    where: { userId: user.id, seriesId, seasonNumber: season },
   });
   await prisma.episodeWatch.deleteMany({
-    where: { userId: user!.id, seriesId, seasonNumber: season },
+    where: { userId: user.id, seriesId, seasonNumber: season },
   });
   return NextResponse.json({ unwatched: true });
 }
