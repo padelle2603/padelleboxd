@@ -1,11 +1,9 @@
 import Link from "next/link";
 import SearchBar from "@/components/layout/SearchBar";
-import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
 import Logo from "@/components/layout/Logo";
 import Image from "next/image";
 import { prisma } from "@/lib/db";
-import { trendingTv, posterUrl } from "@/lib/tmdb";
-import { formatShortDate, formatAirDate } from "@/lib/constants";
+import { formatAirDate } from "@/lib/constants";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { getUpcomingForUser } from "@/lib/upcoming";
 import { getContinueWatching } from "@/lib/continue-watching";
@@ -14,8 +12,7 @@ import ContinueWatching from "@/components/home/ContinueWatching";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [trending, stats, user] = await Promise.all([
-    trendingTv(),
+  const [stats, user] = await Promise.all([
     prisma.$transaction([
       prisma.user.count({ where: { role: { in: ["APPROVED", "ADMIN"] } } }),
       prisma.userSeries.count(),
@@ -26,24 +23,6 @@ export default async function HomePage() {
   const upcoming = await getUpcomingForUser(user);
   const continueWatching =
     user && isActiveUser(user) ? await getContinueWatching(user) : [];
-
-  const trendingCards: PosterCardSeries[] = trending.map((tv) => ({
-    tmdbId: tv.id,
-    name: tv.name,
-    posterUrl: posterUrl(tv.poster_path),
-    firstAirDate: tv.first_air_date,
-    tmdbRating: tv.vote_average,
-  }));
-
-  const recent = await prisma.userSeries.findMany({
-    include: {
-      series: true,
-      user: { select: { username: true, role: true } },
-    },
-    where: { user: { role: { in: ["APPROVED", "ADMIN"] } } },
-    orderBy: { updatedAt: "desc" },
-    take: 8,
-  });
 
   return (
     <div className="space-y-12">
@@ -127,47 +106,6 @@ export default async function HomePage() {
                     <span className="block truncate text-xs text-zinc-500">{u.episodeName}</span>
                   </p>
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section>
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-xl font-bold text-zinc-100">Trending this week</h2>
-          <Link href="/search" className="text-sm font-medium text-blue-400 hover:underline">
-            Search everything →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {trendingCards.map((s) => (
-            <PosterCard key={s.tmdbId} series={s} />
-          ))}
-        </div>
-      </section>
-
-      {recent.length > 0 && (
-        <section>
-          <h2 className="mb-4 text-xl font-bold text-zinc-100">Recently added to lists</h2>
-          <ul className="divide-y divide-zinc-800/80 rounded-2xl border border-zinc-800 bg-zinc-900/40">
-            {recent.map((e) => (
-              <li key={e.id} className="flex items-center gap-4 px-4 py-3">
-                <Link
-                  href={`/series/${e.series.tmdbId}`}
-                  className="line-clamp-1 flex-1 text-sm font-medium text-zinc-200 transition hover:text-blue-400"
-                >
-                  {e.series.name}
-                </Link>
-                <Link
-                  href={`/u/${e.user.username}`}
-                  className="shrink-0 text-sm text-zinc-500 transition hover:text-zinc-300"
-                >
-                  {e.user.username}
-                </Link>
-                <span className="shrink-0 text-xs text-zinc-600">
-                  {formatShortDate(e.updatedAt)}
-                </span>
               </li>
             ))}
           </ul>

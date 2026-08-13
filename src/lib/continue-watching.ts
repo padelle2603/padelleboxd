@@ -15,7 +15,6 @@ export type ContinueWatchingEntry = {
   seasonProgress: number;
 };
 
-const MAX_SERIES = 12;
 const REVALIDATE = 1800;
 
 const getContinueWatchingForUserId = unstable_cache(
@@ -25,7 +24,6 @@ const getContinueWatchingForUserId = unstable_cache(
         where: { userId, status: { in: ["WATCHED", "WATCHING"] } },
         include: { series: true },
         orderBy: { updatedAt: "desc" },
-        take: MAX_SERIES,
       }),
       prisma.seasonWatch.findMany({ where: { userId } }),
       prisma.episodeWatch.findMany({ where: { userId } }),

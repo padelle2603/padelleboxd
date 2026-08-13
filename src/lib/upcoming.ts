@@ -22,7 +22,6 @@ export type UpcomingCard = {
 
 const MAX_AHEAD_DAYS = 30;
 const MAX_JUST_AIRED_DAYS = 7;
-const MAX_SERIES = 12;
 const REVALIDATE = 1800;
 
 function inWindow(d: number | null): boolean {
@@ -36,7 +35,6 @@ const getUpcomingForUserId = unstable_cache(
         where: { userId, status: { in: ["WATCHED", "PLANNED"] } },
         include: { series: true },
         orderBy: { updatedAt: "desc" },
-        take: MAX_SERIES,
       }),
       prisma.episodeWatch.findMany({ where: { userId } }),
     ]);
@@ -53,24 +51,6 @@ const getUpcomingForUserId = unstable_cache(
 
           const next = tv.next_episode_to_air;
           const last = tv.last_episode_to_air;
-
-          if (next && next.air_date) {
-            const d = daysUntil(next.air_date);
-            const key = `${t.seriesId}:${next.season_number}:${next.episode_number}`;
-            if (inWindow(d) && !watchedEpisodes.has(key)) {
-              return {
-                tmdbId: t.seriesId,
-                name: t.series.name,
-                posterUrl: posterUrl(t.series.posterPath),
-                seasonNumber: next.season_number,
-                episodeNumber: next.episode_number,
-                episodeName: next.name,
-                airDate: next.air_date,
-                daysUntil: d!,
-              } satisfies UpcomingCard;
-            }
-          }
-
           if (!next && !last) return null;
 
           const seasonNums = new Set<number>();
