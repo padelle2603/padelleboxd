@@ -72,15 +72,22 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {continueWatching.length > 0 && <ContinueWatching initial={continueWatching} />}
+      {continueWatching.length > 0 && (
+        <ContinueWatching initial={continueWatching} username={user!.username} />
+      )}
 
       {upcoming.length > 0 && (
         <section>
           <div className="mb-4 flex items-end justify-between">
             <h2 className="text-xl font-bold text-zinc-100">Up next</h2>
-            <Link href="/dashboard" className="text-sm font-medium text-blue-400 hover:underline">
-              My list →
-            </Link>
+            {user && isActiveUser(user) && (
+              <Link
+                href={`/u/${user.username}`}
+                className="text-sm font-medium text-blue-400 hover:underline"
+              >
+                My list →
+              </Link>
+            )}
           </div>
           <p className="mb-4 -mt-2 text-xs text-zinc-500">
             Episodes airing or recently aired. They leave this section once you watch the episode.

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { posterUrl } from "@/lib/tmdb";
 import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
+import MyListManager from "@/components/list/MyListManager";
+import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -20,22 +22,71 @@ export default async function UserProfilePage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const activeStatus = (typeof sp.status === "string" ? sp.status : "") as SeriesStatus | "";
 
-  const user = await prisma.user.findUnique({
-    where: { username },
-    include: {
-      list: {
-        include: { series: true },
-        orderBy: { updatedAt: "desc" },
+  const [profile, currentUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { username },
+      include: {
+        list: {
+          include: { series: true },
+          orderBy: { updatedAt: "desc" },
+        },
       },
-    },
-  });
+    }),
+    getCurrentUser(),
+  ]);
 
-  if (!user || (user.role !== "APPROVED" && user.role !== "ADMIN")) notFound();
+  if (!profile || (profile.role !== "APPROVED" && profile.role !== "ADMIN")) notFound();
+
+  const isOwn = !!currentUser && isActiveUser(currentUser) && currentUser.username === profile.username;
+
+  if (isOwn) {
+    const cards = profile.list.map((e) => ({
+      tmdbId: e.series.tmdbId,
+      name: e.series.name,
+      posterUrl: posterUrl(e.series.posterPath),
+      status: e.status as SeriesStatus,
+      rating: e.rating,
+    }));
+
+    const count = (s: SeriesStatus) => profile.list.filter((e) => e.status === s).length;
+
+    return (
+      <div className="space-y-8">
+        <section className="flex flex-wrap items-center gap-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-2xl font-black">
+            {profile.username.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold">My list</h1>
+            <p className="text-sm text-zinc-500">
+              {profile.list.length} series ·{" "}
+              {STATUSES.map((s) => (
+                <span key={s} className="mr-3">
+                  <span className="capitalize">{STATUS_LABEL[s].toLowerCase()}</span>:{" "}
+                  <b className="text-zinc-300">{count(s)}</b>
+                </span>
+              ))}
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap gap-3">
+            <a href="/api/me/export" className="btn-ghost">
+              Export CSV
+            </a>
+            <Link href="/search" className="btn-primary">
+              + Add series
+            </Link>
+          </div>
+        </section>
+
+        <MyListManager initialEntries={cards} />
+      </div>
+    );
+  }
 
   const filtered =
     activeStatus && STATUSES.includes(activeStatus)
-      ? user.list.filter((e) => e.status === activeStatus)
-      : user.list;
+      ? profile.list.filter((e) => e.status === activeStatus)
+      : profile.list;
 
   const cards: PosterCardSeries[] = filtered.map((e) => ({
     tmdbId: e.series.tmdbId,
@@ -47,18 +98,18 @@ export default async function UserProfilePage({ params, searchParams }: Props) {
     rating: e.rating,
   }));
 
-  const count = (s: SeriesStatus) => user.list.filter((e) => e.status === s).length;
+  const count = (s: SeriesStatus) => profile.list.filter((e) => e.status === s).length;
 
   return (
     <div className="space-y-8">
       <section className="flex flex-wrap items-center gap-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-2xl font-black">
-          {user.username.charAt(0).toUpperCase()}
+          {profile.username.charAt(0).toUpperCase()}
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold">{user.username}</h1>
+          <h1 className="text-2xl font-extrabold">{profile.username}</h1>
           <p className="text-sm text-zinc-500">
-            {user.list.length} series in their list
+            {profile.list.length} series in their list
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-3 text-center text-sm">
@@ -72,11 +123,11 @@ export default async function UserProfilePage({ params, searchParams }: Props) {
       </section>
 
       <div className="flex flex-wrap gap-1 text-sm">
-        <Tab href={`/u/${username}`} active={activeStatus === ""}>
+        <Tab href={`/u/${profile.username}`} active={activeStatus === ""}>
           All
         </Tab>
         {STATUSES.map((s) => (
-          <Tab key={s} href={`/u/${username}?status=${s}`} active={activeStatus === s}>
+          <Tab key={s} href={`/u/${profile.username}?status=${s}`} active={activeStatus === s}>
             {STATUS_LABEL[s]}
           </Tab>
         ))}

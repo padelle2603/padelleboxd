@@ -49,7 +49,7 @@ export default function AuthForm({
         return;
       }
       if (isLogin) {
-        router.push("/dashboard");
+        router.push(`/u/${data.user?.username}`);
         router.refresh();
       } else {
         setSuccess(

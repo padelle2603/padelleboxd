@@ -20,8 +20,10 @@ type ContinueWatchingEntry = {
 
 export default function ContinueWatching({
   initial,
+  username,
 }: {
   initial: ContinueWatchingEntry[];
+  username: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function ContinueWatching({
     <section>
       <div className="mb-4 flex items-end justify-between">
         <h2 className="text-xl font-bold text-zinc-100">Continue watching</h2>
-        <Link href="/dashboard" className="text-sm font-medium text-blue-400 hover:underline">
+        <Link href={`/u/${username}`} className="text-sm font-medium text-blue-400 hover:underline">
           My list →
         </Link>
       </div>
