@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/db";
 
@@ -43,14 +44,14 @@ export async function getRequestToken(): Promise<string | null> {
   return null;
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value ?? (await getRequestToken());
   if (!token) return null;
   const session = await verifySessionToken(token);
   if (!session) return null;
   return await prisma.user.findUnique({ where: { id: session.sub } });
-}
+});
 
 export function sessionCookieOptions() {
   return {

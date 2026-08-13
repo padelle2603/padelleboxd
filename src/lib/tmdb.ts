@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { Prisma } from "@/generated/prisma/client";
 
 const API_BASE = "https://api.themoviedb.org/3";
@@ -75,21 +76,23 @@ export async function searchTv(query: string): Promise<TmdbTv[]> {
   return data.results ?? [];
 }
 
-export async function trendingTv(): Promise<TmdbTv[]> {
+export const trendingTv = cache(async function trendingTv(): Promise<TmdbTv[]> {
   const res = await tmdbFetch("/trending/tv/week");
   if (!res.ok) throw new Error(`TMDB trending failed (${res.status})`);
   const data = (await res.json()) as { results: TmdbTv[] };
   return (data.results ?? []).slice(0, 12);
-}
+});
 
-export async function getTvDetails(tmdbId: number): Promise<TmdbTv | null> {
+export const getTvDetails = cache(async function getTvDetails(
+  tmdbId: number
+): Promise<TmdbTv | null> {
   const res = await tmdbFetch(`/tv/${tmdbId}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`TMDB detail failed (${res.status})`);
   return (await res.json()) as TmdbTv;
-}
+});
 
-export async function getSeasonEpisodes(
+export const getSeasonEpisodes = cache(async function getSeasonEpisodes(
   tmdbId: number,
   seasonNumber: number
 ): Promise<TmdbEpisode[]> {
@@ -97,7 +100,7 @@ export async function getSeasonEpisodes(
   if (!res.ok) throw new Error(`TMDB season fetch failed (${res.status})`);
   const data = (await res.json()) as { episodes?: TmdbEpisode[] };
   return data.episodes ?? [];
-}
+});
 
 export function stillUrl(path: string | null, size = "w300"): string | null {
   if (!path) return null;
