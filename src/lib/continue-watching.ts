@@ -1,7 +1,9 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
-import { getTvDetails, getSeasonEpisodes, posterUrl } from "@/lib/tmdb";
+import { getTvDetails, getSeasonEpisodes, posterUrl, daysUntil } from "@/lib/tmdb";
+
+const MAX_UNRELEASED_AHEAD_DAYS = 7;
 
 export type ContinueWatchingEntry = {
   tmdbId: number;
@@ -62,6 +64,9 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
               .sort((a, b) => a.episode_number - b.episode_number)
               .find((e) => !watchedSet.has(e.episode_number));
             if (!next) continue;
+
+            const releaseDays = daysUntil(next.air_date);
+            if (releaseDays !== null && releaseDays > MAX_UNRELEASED_AHEAD_DAYS) continue;
 
             return {
               tmdbId: entry.seriesId,
