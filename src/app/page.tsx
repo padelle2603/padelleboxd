@@ -20,9 +20,10 @@ export default async function HomePage() {
     ]),
     getCurrentUser(),
   ]);
-  const upcoming = await getUpcomingForUser(user);
-  const continueWatching =
-    user && isActiveUser(user) ? await getContinueWatching(user) : [];
+  const activeUser = user && isActiveUser(user) ? user : null;
+  const [upcoming, continueWatching] = activeUser
+    ? await Promise.all([getUpcomingForUser(activeUser), getContinueWatching(activeUser)])
+    : [await getUpcomingForUser(activeUser), []];
 
   return (
     <div className="space-y-12">

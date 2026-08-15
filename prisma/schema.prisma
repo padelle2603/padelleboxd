@@ -90,3 +90,11 @@ model EpisodeWatch {
   @@index([userId])
   @@index([seriesId])
 }
+
+model TmdbCache {
+  key       String   @id
+  payload   Json
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+}

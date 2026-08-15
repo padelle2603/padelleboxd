@@ -1,11 +1,46 @@
 import "server-only";
 import { cache } from "react";
 import { Prisma } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db";
 
 const API_BASE = "https://api.themoviedb.org/3";
 const IMAGE_BASE = process.env.TMDB_IMAGE_BASE_URL ?? "https://image.tmdb.org/t/p";
 
 const apiKey = process.env.TMDB_API_KEY;
+
+export const TMDB_CACHE_TTL_MS = 60 * 60 * 1000;
+export const TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const cacheKey = (path: string) => `tmdb:${path}`;
+
+async function cacheGet<T>(key: string): Promise<T | null> {
+  try {
+    const entry = await prisma.tmdbCache.findUnique({ where: { key } });
+    if (!entry) return null;
+    if (Date.now() - entry.updatedAt.getTime() > TMDB_CACHE_TTL_MS) return null;
+    return entry.payload as T;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheSet(key: string, payload: unknown): Promise<void> {
+  try {
+    await prisma.tmdbCache.upsert({
+      where: { key },
+      update: { payload: payload as Prisma.InputJsonValue, updatedAt: new Date() },
+      create: { key, payload: payload as Prisma.InputJsonValue },
+    });
+  } catch {
+    // cache write failures should never break the request
+  }
+}
+
+export async function purgeTmdbCache(): Promise<number> {
+  const cutoff = new Date(Date.now() - TMDB_CACHE_MAX_AGE_MS);
+  const res = await prisma.tmdbCache.deleteMany({ where: { updatedAt: { lt: cutoff } } });
+  return res.count;
+}
 
 export type TmdbSeason = {
   id: number;
@@ -86,20 +121,32 @@ export const trendingTv = cache(async function trendingTv(): Promise<TmdbTv[]> {
 export const getTvDetails = cache(async function getTvDetails(
   tmdbId: number
 ): Promise<TmdbTv | null> {
-  const res = await tmdbFetch(`/tv/${tmdbId}`);
+  const key = cacheKey(`/tv/${tmdbId}`);
+  const cached = await cacheGet<TmdbTv>(key);
+  if (cached) return cached;
+
+  const res = await tmdbFetch(`/tv/${tmdbId}`, {}, "no-store");
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`TMDB detail failed (${res.status})`);
-  return (await res.json()) as TmdbTv;
+  const data = (await res.json()) as TmdbTv;
+  await cacheSet(key, data);
+  return data;
 });
 
 export const getSeasonEpisodes = cache(async function getSeasonEpisodes(
   tmdbId: number,
   seasonNumber: number
 ): Promise<TmdbEpisode[]> {
-  const res = await tmdbFetch(`/tv/${tmdbId}/season/${seasonNumber}`);
+  const key = cacheKey(`/tv/${tmdbId}/season/${seasonNumber}`);
+  const cached = await cacheGet<TmdbEpisode[]>(key);
+  if (cached) return cached;
+
+  const res = await tmdbFetch(`/tv/${tmdbId}/season/${seasonNumber}`, {}, "no-store");
   if (!res.ok) throw new Error(`TMDB season fetch failed (${res.status})`);
   const data = (await res.json()) as { episodes?: TmdbEpisode[] };
-  return data.episodes ?? [];
+  const episodes = data.episodes ?? [];
+  await cacheSet(key, episodes);
+  return episodes;
 });
 
 export function stillUrl(path: string | null, size = "w300"): string | null {
