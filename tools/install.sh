@@ -8,8 +8,9 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 EXPORTER="$SRC_DIR/padelle-boxd-exporter.py"
 SCHEDULE="$SRC_DIR/padelle-boxd-schedule.py"
+COMMON="$SRC_DIR/scraper_common.py"
 
-for f in "$EXPORTER" "$SCHEDULE"; do
+for f in "$EXPORTER" "$SCHEDULE" "$COMMON"; do
     if [ ! -f "$f" ]; then
         echo "Error: $f not found next to install.sh" >&2
         exit 1
@@ -17,7 +18,7 @@ for f in "$EXPORTER" "$SCHEDULE"; do
 done
 
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
-cp "$EXPORTER" "$SCHEDULE" "$INSTALL_DIR/"
+cp "$EXPORTER" "$SCHEDULE" "$COMMON" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR"/*.py
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
