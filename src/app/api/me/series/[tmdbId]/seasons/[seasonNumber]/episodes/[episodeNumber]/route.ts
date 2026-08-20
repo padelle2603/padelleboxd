@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/auth";
+import { revalidateUserPaths } from "@/lib/revalidate";
 
 type Ctx = {
   params: Promise<{
@@ -69,6 +70,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         create: { userId: user.id, seriesId, seasonNumber: season },
       });
     }
+    revalidateUserPaths(user.username, seriesId);
     return NextResponse.json({ watched: true });
   }
 
@@ -78,5 +80,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   await prisma.seasonWatch.deleteMany({
     where: { userId: user.id, seriesId, seasonNumber: season },
   });
+  revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ watched: false });
 }

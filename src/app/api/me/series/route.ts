@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/auth";
 import { getTvDetails, tvToSeriesData, posterUrl } from "@/lib/tmdb";
+import { revalidateUserPaths } from "@/lib/revalidate";
 
 const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
 
@@ -77,5 +78,6 @@ export async function POST(req: NextRequest) {
     create: { userId: user.id, seriesId: tmdbId, status, rating },
   });
 
+  revalidateUserPaths(user.username, tmdbId);
   return NextResponse.json({ entry }, { status: 201 });
 }

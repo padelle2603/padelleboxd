@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 const actionSchema = z.object({
   userId: z.string().min(1),
@@ -70,5 +71,7 @@ export async function POST(req: NextRequest) {
     select: { id: true, username: true, role: true, createdAt: true },
   });
 
+  revalidatePath("/admin");
+  revalidatePath(`/u/${updated.username}`);
   return NextResponse.json({ user: updated });
 }

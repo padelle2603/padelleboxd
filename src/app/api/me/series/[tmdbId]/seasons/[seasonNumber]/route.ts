@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/auth";
 import { getSeasonEpisodes } from "@/lib/tmdb";
+import { revalidateUserPaths } from "@/lib/revalidate";
 
 type Ctx = { params: Promise<{ tmdbId: string; seasonNumber: string }> };
 
@@ -66,6 +67,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       // best effort: even if TMDB is unreachable the season is marked watched
     }
 
+    revalidateUserPaths(user.username, seriesId);
+
     return NextResponse.json({
       entry,
       episodesWatched,
@@ -78,5 +81,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   await prisma.episodeWatch.deleteMany({
     where: { userId: user.id, seriesId, seasonNumber: season },
   });
+  revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ unwatched: true });
 }

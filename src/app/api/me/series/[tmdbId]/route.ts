@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/auth";
 import { getTvDetails, getSeasonEpisodes, todayDateStr } from "@/lib/tmdb";
+import { revalidateUserPaths } from "@/lib/revalidate";
 
 const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
 
@@ -112,6 +113,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
     }
   }
 
+  revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ entry, seasonsWatched, episodesWatched });
 }
 
@@ -137,5 +139,6 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/serie
     where: { userId_seriesId: { userId: user.id, seriesId } },
   });
 
+  revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ message: "Removed from your list" });
 }
