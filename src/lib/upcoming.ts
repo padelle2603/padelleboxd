@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { prisma } from "@/lib/db";
 import { isActiveUser, type CurrentUser } from "@/lib/auth";
+import { getWatchData } from "@/lib/watch-data";
 import {
   getTvDetails,
   getSeasonEpisodes,
@@ -27,18 +27,7 @@ function inWindow(d: number | null): boolean {
 }
 
 const getUpcomingForUserId = cache(async (userId: string) => {
-    const [tracked, episodeWatches] = await Promise.all([
-      prisma.userSeries.findMany({
-        where: { userId, status: { in: ["WATCHED", "WATCHING"] } },
-        include: { series: true },
-        orderBy: { updatedAt: "desc" },
-      }),
-      prisma.episodeWatch.findMany({ where: { userId } }),
-    ]);
-
-    const watchedEpisodes = new Set(
-      episodeWatches.map((w) => `${w.seriesId}:${w.seasonNumber}:${w.episodeNumber}`)
-    );
+    const { tracked, watchedEpisodeKeys } = await getWatchData(userId);
 
     const results = await Promise.all(
       tracked.map(async (t) => {
@@ -58,21 +47,24 @@ const getUpcomingForUserId = cache(async (userId: string) => {
             seasonNums.add(last.season_number + 1);
           }
 
-          const candidates: TmdbEpisode[] = [];
-          for (const n of seasonNums) {
-            try {
-              candidates.push(...(await getSeasonEpisodes(t.seriesId, n)));
-            } catch {
-              // ignore seasons that fail to load
-            }
-          }
+          const candidates = (
+            await Promise.all(
+              [...seasonNums].map(async (n) => {
+                try {
+                  return await getSeasonEpisodes(t.seriesId, n);
+                } catch {
+                  return [] as TmdbEpisode[];
+                }
+              })
+            )
+          ).flat();
 
           const nextUp = candidates
             .filter((ep) => {
               if (!ep.air_date) return false;
               const d = daysUntil(ep.air_date);
               if (!inWindow(d)) return false;
-              if (watchedEpisodes.has(`${t.seriesId}:${ep.season_number}:${ep.episode_number}`)) {
+              if (watchedEpisodeKeys.has(`${t.seriesId}:${ep.season_number}:${ep.episode_number}`)) {
                 return false;
               }
               return true;
@@ -84,8 +76,8 @@ const getUpcomingForUserId = cache(async (userId: string) => {
 
           return {
             tmdbId: t.seriesId,
-            name: t.series.name,
-            posterUrl: posterUrl(t.series.posterPath),
+            name: t.name,
+            posterUrl: posterUrl(t.posterPath),
             seasonNumber: nextUp.season_number,
             episodeNumber: nextUp.episode_number,
             episodeName: nextUp.name,

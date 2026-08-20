@@ -1,7 +1,13 @@
 import { cache } from "react";
-import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth";
-import { getTvDetails, getSeasonEpisodes, posterUrl, daysUntil } from "@/lib/tmdb";
+import { getWatchData } from "@/lib/watch-data";
+import {
+  getTvDetails,
+  getSeasonEpisodes,
+  posterUrl,
+  daysUntil,
+  type TmdbEpisode,
+} from "@/lib/tmdb";
 
 const MAX_UNRELEASED_AHEAD_DAYS = 7;
 
@@ -18,31 +24,12 @@ export type ContinueWatchingEntry = {
 };
 
 const getContinueWatchingForUserId = cache(async (userId: string) => {
-    const [entries, seasonWatches, episodeWatches] = await Promise.all([
-      prisma.userSeries.findMany({
-        where: { userId, status: { in: ["WATCHED", "WATCHING"] } },
-        include: { series: true },
-        orderBy: { updatedAt: "desc" },
-      }),
-      prisma.seasonWatch.findMany({ where: { userId } }),
-      prisma.episodeWatch.findMany({ where: { userId } }),
-    ]);
+    const { tracked, watchedSeasons, watchedEpisodes } = await getWatchData(userId);
 
-    if (entries.length === 0) return [];
-
-    const watchedSeasons = new Set(
-      seasonWatches.map((w) => `${w.seriesId}:${w.seasonNumber}`)
-    );
-    const watchedEpisodesBySeason = new Map<string, Set<number>>();
-    for (const w of episodeWatches) {
-      const key = `${w.seriesId}:${w.seasonNumber}`;
-      const set = watchedEpisodesBySeason.get(key) ?? new Set<number>();
-      set.add(w.episodeNumber);
-      watchedEpisodesBySeason.set(key, set);
-    }
+    if (tracked.length === 0) return [];
 
     const results = await Promise.all(
-      entries.map(async (entry) => {
+      tracked.map(async (entry) => {
         try {
           const tv = await getTvDetails(entry.seriesId);
           if (!tv?.seasons) return null;
@@ -51,15 +38,27 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
             .filter((s) => s.season_number > 0 && (s.episode_count ?? 0) > 0)
             .sort((a, b) => a.season_number - b.season_number);
 
-          for (const season of seasons) {
+          const candidateSeasons = seasons.filter((s) => {
+            const seasonKey = `${entry.seriesId}:${s.season_number}`;
+            if (watchedSeasons.has(seasonKey)) return false;
+            const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+            return watchedSet.size < (s.episode_count ?? 0);
+          });
+
+          const episodesBySeason = await Promise.all(
+            candidateSeasons.map(async (s) => {
+              try {
+                return { season: s, episodes: await getSeasonEpisodes(entry.seriesId, s.season_number) };
+              } catch {
+                return { season: s, episodes: [] as TmdbEpisode[] };
+              }
+            })
+          );
+
+          for (const { season, episodes } of episodesBySeason) {
             const seasonKey = `${entry.seriesId}:${season.season_number}`;
-            if (watchedSeasons.has(seasonKey)) continue;
-
-            const watchedSet = watchedEpisodesBySeason.get(seasonKey) ?? new Set<number>();
-            if (watchedSet.size >= season.episode_count) continue;
-
-            const eps = await getSeasonEpisodes(entry.seriesId, season.season_number);
-            const next = eps
+            const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+            const next = episodes
               .slice()
               .sort((a, b) => a.episode_number - b.episode_number)
               .find((e) => !watchedSet.has(e.episode_number));
@@ -70,8 +69,8 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
 
             return {
               tmdbId: entry.seriesId,
-              name: entry.series.name,
-              posterUrl: posterUrl(entry.series.posterPath),
+              name: entry.name,
+              posterUrl: posterUrl(entry.posterPath),
               seasonNumber: season.season_number,
               episodeNumber: next.episode_number,
               episodeName: next.name,

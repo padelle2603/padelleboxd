@@ -43,25 +43,17 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     let episodesWatched = 0;
     try {
       const episodes = await getSeasonEpisodes(seriesId, season);
-      for (const ep of episodes) {
-        await prisma.episodeWatch.upsert({
-          where: {
-            userId_seriesId_seasonNumber_episodeNumber: {
-              userId: user.id,
-              seriesId,
-              seasonNumber: season,
-              episodeNumber: ep.episode_number,
-            },
-          },
-          update: {},
-          create: {
+      if (episodes.length > 0) {
+        await prisma.episodeWatch.createMany({
+          data: episodes.map((ep) => ({
             userId: user.id,
             seriesId,
             seasonNumber: season,
             episodeNumber: ep.episode_number,
-          },
+          })),
+          skipDuplicates: true,
         });
-        episodesWatched++;
+        episodesWatched = episodes.length;
       }
     } catch {
       // best effort: even if TMDB is unreachable the season is marked watched

@@ -36,13 +36,10 @@ export default async function SeriesPage({ params }: Props) {
   const [tv, user] = await Promise.all([getTvDetails(id), getCurrentUser()]);
   if (!tv) notFound();
 
-  const [tracked, counts, watchedSeasons, watchedEpisodes] = await Promise.all([
+  const [tracked, counts, watchedSeasons, watchedEpisodes, upcomingEpisodes] = await Promise.all([
     prisma.userSeries.findMany({
       where: { seriesId: id },
-      include: {
-        user: { select: { username: true, role: true } },
-        series: true,
-      },
+      include: { user: { select: { username: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.userSeries.groupBy({
@@ -62,10 +59,10 @@ export default async function SeriesPage({ params }: Props) {
           select: { seasonNumber: true, episodeNumber: true },
         })
       : Promise.resolve([]),
+    getUpcomingEpisodes(tv, 7),
   ]);
 
   const watchedSeasonNumbers = watchedSeasons.map((w) => w.seasonNumber);
-  const upcomingEpisodes = await getUpcomingEpisodes(tv, 7);
   const nextToAir = tv.next_episode_to_air ?? null;
 
   const countMap = Object.fromEntries(

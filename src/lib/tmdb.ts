@@ -100,7 +100,11 @@ function tmdbFetch(path: string, params: Record<string, string> = {}, cache: "re
   return fetch(url, cache === "no-store" ? { cache: "no-store" } : { next: { revalidate: 3600 } });
 }
 
-export async function searchTv(query: string): Promise<TmdbTv[]> {
+export const searchTv = cache(async function searchTv(query: string): Promise<TmdbTv[]> {
+  const key = cacheKey(`search:${query.toLowerCase().trim()}`);
+  const cached = await cacheGet<TmdbTv[]>(key);
+  if (cached) return cached;
+
   const res = await tmdbFetch(
     "/search/tv",
     { query, include_adult: "false" },
@@ -108,8 +112,10 @@ export async function searchTv(query: string): Promise<TmdbTv[]> {
   );
   if (!res.ok) throw new Error(`TMDB search failed (${res.status})`);
   const data = (await res.json()) as { results: TmdbTv[] };
-  return data.results ?? [];
-}
+  const results = data.results ?? [];
+  await cacheSet(key, results);
+  return results;
+});
 
 export const trendingTv = cache(async function trendingTv(): Promise<TmdbTv[]> {
   const res = await tmdbFetch("/trending/tv/week");
@@ -180,15 +186,17 @@ export async function getUpcomingEpisodes(tv: TmdbTv, max = 7): Promise<TmdbEpis
   } else if (tv.last_episode_to_air?.season_number != null) {
     seasonNums.add(tv.last_episode_to_air.season_number + 1);
   }
-  const all: TmdbEpisode[] = [];
-  for (const n of seasonNums) {
-    try {
-      const eps = await getSeasonEpisodes(tv.id, n);
-      all.push(...eps);
-    } catch {
-      // ignore seasons that fail to load
-    }
-  }
+  const all = (
+    await Promise.all(
+      [...seasonNums].map(async (n) => {
+        try {
+          return await getSeasonEpisodes(tv.id, n);
+        } catch {
+          return [] as TmdbEpisode[];
+        }
+      })
+    )
+  ).flat();
   return all
     .filter((e) => e.air_date && e.air_date >= today)
     .sort((a, b) => (a.air_date! < b.air_date! ? -1 : 1))

@@ -74,39 +74,41 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
           ?.filter((s) => s.season_number >= 0 && s.air_date && s.air_date <= today)
           .map((s) => s.season_number) ?? [];
 
-      for (const season of releasedSeasons) {
-        await prisma.seasonWatch.upsert({
-          where: {
-            userId_seriesId_seasonNumber: { userId: user.id, seriesId, seasonNumber: season },
-          },
-          update: {},
-          create: { userId: user.id, seriesId, seasonNumber: season },
-        });
-        seasonsWatched++;
+      if (releasedSeasons.length > 0) {
+        const seasonEpisodes = await Promise.all(
+          releasedSeasons.map(async (season) => {
+            const episodes = await getSeasonEpisodes(seriesId, season);
+            return {
+              season,
+              released: episodes.filter((ep) => ep.air_date && ep.air_date <= today),
+            };
+          })
+        );
 
-        const episodes = await getSeasonEpisodes(seriesId, season);
-        for (const ep of episodes) {
-          if (ep.air_date && ep.air_date <= today) {
-            await prisma.episodeWatch.upsert({
-              where: {
-                userId_seriesId_seasonNumber_episodeNumber: {
-                  userId: user.id,
-                  seriesId,
-                  seasonNumber: season,
-                  episodeNumber: ep.episode_number,
-                },
-              },
-              update: {},
-              create: {
+        await prisma.$transaction([
+          prisma.seasonWatch.createMany({
+            data: releasedSeasons.map((season) => ({
+              userId: user.id,
+              seriesId,
+              seasonNumber: season,
+            })),
+            skipDuplicates: true,
+          }),
+          prisma.episodeWatch.createMany({
+            data: seasonEpisodes.flatMap(({ season, released }) =>
+              released.map((ep) => ({
                 userId: user.id,
                 seriesId,
                 seasonNumber: season,
                 episodeNumber: ep.episode_number,
-              },
-            });
-            episodesWatched++;
-          }
-        }
+              }))
+            ),
+            skipDuplicates: true,
+          }),
+        ]);
+
+        seasonsWatched = releasedSeasons.length;
+        episodesWatched = seasonEpisodes.reduce((acc, s) => acc + s.released.length, 0);
       }
     } catch {
       // best effort: even if TMDB is unreachable the series is marked watched

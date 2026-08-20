@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { trendingTv, posterUrl } from "@/lib/tmdb";
+import { getSiteStats } from "@/lib/stats";
 
 export async function GET() {
-  const [trending, stats] = await Promise.all([
-    trendingTv(),
-    prisma.$transaction([
-      prisma.user.count({ where: { role: { in: ["APPROVED", "ADMIN"] } } }),
-      prisma.userSeries.count(),
-      prisma.series.count(),
-    ]),
-  ]);
+  const [trending, stats] = await Promise.all([trendingTv(), getSiteStats()]);
 
   return NextResponse.json({
     results: trending.map((tv) => ({

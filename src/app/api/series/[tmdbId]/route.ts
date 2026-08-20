@@ -10,17 +10,18 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
     return NextResponse.json({ error: "Invalid series id" }, { status: 400 });
   }
 
-  const details = await getTvDetails(id);
+  const [details, user, trackedBy] = await Promise.all([
+    getTvDetails(id),
+    getCurrentUser(),
+    prisma.userSeries.findMany({
+      where: { seriesId: id },
+      include: { user: { select: { username: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
   if (!details) {
     return NextResponse.json({ error: "Series not found" }, { status: 404 });
   }
-
-  const user = await getCurrentUser();
-  const trackedBy = await prisma.userSeries.findMany({
-    where: { seriesId: id },
-    include: { user: { select: { username: true } } },
-    orderBy: { updatedAt: "desc" },
-  });
 
   const myEntry = user ? trackedBy.find((t) => t.userId === user.id) ?? null : null;
 

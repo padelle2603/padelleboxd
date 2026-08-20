@@ -7,9 +7,9 @@ function createClient(): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg({
       connectionString: url,
-      max: 1,
+      max: 10,
       connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 1000,
+      idleTimeoutMillis: 10000,
     }),
   });
 }

@@ -2,9 +2,9 @@ import Link from "next/link";
 import SearchBar from "@/components/layout/SearchBar";
 import Logo from "@/components/layout/Logo";
 import Image from "next/image";
-import { prisma } from "@/lib/db";
 import { formatAirDate } from "@/lib/constants";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
+import { getSiteStats } from "@/lib/stats";
 import { getUpcomingForUser } from "@/lib/upcoming";
 import { getContinueWatching } from "@/lib/continue-watching";
 import ContinueWatching from "@/components/home/ContinueWatching";
@@ -12,14 +12,7 @@ import ContinueWatching from "@/components/home/ContinueWatching";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, user] = await Promise.all([
-    prisma.$transaction([
-      prisma.user.count({ where: { role: { in: ["APPROVED", "ADMIN"] } } }),
-      prisma.userSeries.count(),
-      prisma.series.count(),
-    ]),
-    getCurrentUser(),
-  ]);
+  const [stats, user] = await Promise.all([getSiteStats(), getCurrentUser()]);
   const activeUser = user && isActiveUser(user) ? user : null;
   const [upcoming, continueWatching] = activeUser
     ? await Promise.all([getUpcomingForUser(activeUser), getContinueWatching(activeUser)])

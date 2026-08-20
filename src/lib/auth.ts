@@ -68,7 +68,10 @@ export const getCurrentUser = cache(async function getCurrentUser() {
   if (!token) return null;
   const session = await verifySessionToken(token);
   if (!session) return null;
-  return await prisma.user.findUnique({ where: { id: session.sub } });
+  return await prisma.user.findUnique({
+    where: { id: session.sub },
+    select: { id: true, username: true, role: true },
+  });
 });
 
 export function sessionCookieOptions() {
