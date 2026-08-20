@@ -26,8 +26,23 @@ export default function ContinueWatching({
   username: string;
 }) {
   const router = useRouter();
+  const [entries, setEntries] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function refreshEntries() {
+    try {
+      const res = await fetch("/api/me/continue-watching");
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries ?? []);
+        return true;
+      }
+    } catch {
+      // fall through and let router.refresh() handle it
+    }
+    return false;
+  }
 
   async function markWatched(item: ContinueWatchingEntry) {
     if (busy !== null) return;
@@ -47,6 +62,7 @@ export default function ContinueWatching({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Could not mark the episode as watched");
       }
+      await refreshEntries();
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -69,7 +85,7 @@ export default function ContinueWatching({
         </p>
       )}
       <ul className="divide-y divide-zinc-800/80 rounded-2xl border border-zinc-800 bg-zinc-900/40">
-        {initial.map((item) => {
+        {entries.map((item) => {
           const key = `${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}`;
           const isBusy = busy === key;
           return (
