@@ -14,7 +14,21 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/users/[user
         role: true,
         createdAt: true,
         list: {
-          include: { series: true },
+          select: {
+            seriesId: true,
+            status: true,
+            rating: true,
+            updatedAt: true,
+            series: {
+              select: {
+                tmdbId: true,
+                name: true,
+                posterPath: true,
+                firstAirDate: true,
+                tmdbRating: true,
+              },
+            },
+          },
           orderBy: { updatedAt: "desc" },
         },
       },
@@ -66,7 +80,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/users/[user
     },
   }));
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     username: user.username,
     createdAt: user.createdAt,
     counts: {
@@ -78,4 +92,6 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/users/[user
     },
     entries,
   });
+  response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+  return response;
 }

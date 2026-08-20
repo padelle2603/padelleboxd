@@ -48,6 +48,7 @@ export default function AuthForm({
         return;
       }
       if (isLogin) {
+        window.dispatchEvent(new Event("pb:auth"));
         router.push(`/u/${data.user?.username}`);
         router.refresh();
       } else {

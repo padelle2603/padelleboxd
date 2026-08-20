@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     where: onlyPending ? { role: "PENDING" } : {},
     select: { id: true, username: true, role: true, createdAt: true },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
 
   return NextResponse.json({ users });

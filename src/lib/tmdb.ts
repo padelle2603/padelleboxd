@@ -13,7 +13,31 @@ export const TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const cacheKey = (path: string) => `tmdb:${path}`;
 
+type MemEntry = { value: unknown; expires: number };
+const memCache = new Map<string, MemEntry>();
+const MEM_CACHE_MAX = 500;
+
+function memGet<T>(key: string): T | null {
+  const entry = memCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    memCache.delete(key);
+    return null;
+  }
+  return entry.value as T;
+}
+
+function memSet(key: string, value: unknown): void {
+  if (memCache.size >= MEM_CACHE_MAX) {
+    const first = memCache.keys().next().value;
+    if (first) memCache.delete(first);
+  }
+  memCache.set(key, { value, expires: Date.now() + TMDB_CACHE_TTL_MS });
+}
+
 async function cacheGet<T>(key: string): Promise<T | null> {
+  const mem = memGet<T>(key);
+  if (mem) return mem;
   try {
     const entry = await prisma.tmdbCache.findUnique({ where: { key } });
     if (!entry) return null;
@@ -25,6 +49,7 @@ async function cacheGet<T>(key: string): Promise<T | null> {
 }
 
 async function cacheSet(key: string, payload: unknown): Promise<void> {
+  memSet(key, payload);
   try {
     await prisma.tmdbCache.upsert({
       where: { key },

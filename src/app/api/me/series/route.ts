@@ -19,9 +19,27 @@ export async function GET(req: NextRequest) {
   const user = auth.user;
 
   const status = req.nextUrl.searchParams.get("status");
+  const statusFilter =
+    status && STATUSES.includes(status as (typeof STATUSES)[number])
+      ? { status: status as (typeof STATUSES)[number] }
+      : {};
   const entries = await prisma.userSeries.findMany({
-    where: { userId: user.id, ...(status ? { status: status as never } : {}) },
-    include: { series: true },
+    where: { userId: user.id, ...statusFilter },
+    select: {
+      id: true,
+      status: true,
+      rating: true,
+      updatedAt: true,
+      series: {
+        select: {
+          tmdbId: true,
+          name: true,
+          posterPath: true,
+          firstAirDate: true,
+          tmdbRating: true,
+        },
+      },
+    },
     orderBy: { updatedAt: "desc" },
   });
 

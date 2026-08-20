@@ -5,7 +5,7 @@ import { getSiteStats } from "@/lib/stats";
 export async function GET() {
   const [trending, stats] = await Promise.all([trendingTv(), getSiteStats()]);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     results: trending.map((tv) => ({
       tmdbId: tv.id,
       name: tv.name,
@@ -16,4 +16,6 @@ export async function GET() {
     })),
     stats: { members: stats[0], trackedSeries: stats[1], catalogSeries: stats[2] },
   });
+  response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  return response;
 }

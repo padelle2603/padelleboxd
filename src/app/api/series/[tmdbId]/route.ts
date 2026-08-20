@@ -25,16 +25,23 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
 
   const myEntry = user ? trackedBy.find((t) => t.userId === user.id) ?? null : null;
 
-  const myWatchedSeasons = user
-    ? (
-        await prisma.seasonWatch.findMany({
+  const [myWatchedSeasons, myWatchedEpisodes] = user
+    ? await Promise.all([
+        prisma.seasonWatch.findMany({
           where: { userId: user.id, seriesId: id },
           select: { seasonNumber: true },
-        })
-      ).map((w) => w.seasonNumber)
-    : [];
+        }),
+        prisma.episodeWatch.findMany({
+          where: { userId: user.id, seriesId: id },
+          select: { seasonNumber: true, episodeNumber: true },
+        }),
+      ])
+    : [
+        [] as { seasonNumber: number }[],
+        [] as { seasonNumber: number; episodeNumber: number }[],
+      ];
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     details: {
       id: details.id,
       name: details.name,
@@ -71,6 +78,19 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/series/[tmd
     myEntry: myEntry
       ? { status: myEntry.status, rating: myEntry.rating }
       : null,
-    myWatchedSeasons,
+    canEdit: !!user && (user.role === "APPROVED" || user.role === "ADMIN"),
+    myWatchedSeasons: myWatchedSeasons.map((w) => w.seasonNumber),
+    myWatchedEpisodes: myWatchedEpisodes.map((w) => ({
+      seasonNumber: w.seasonNumber,
+      episodeNumber: w.episodeNumber,
+    })),
   });
+
+  response.headers.set(
+    "Cache-Control",
+    user
+      ? "private, no-store"
+      : "public, s-maxage=60, stale-while-revalidate=300"
+  );
+  return response;
 }

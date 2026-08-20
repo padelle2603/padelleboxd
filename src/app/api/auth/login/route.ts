@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { compare } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/auth";
-import { hashPassword, verifyPassword } from "@/lib/password";
+import { hashPassword, verifyPassword, isLegacyHash } from "@/lib/password";
 
 const loginSchema = z.object({
   identifier: z.string().min(1, "Required"),
@@ -29,16 +28,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const isSha256 = verifyPassword(password, user.passwordHash);
-  const isLegacy = !isSha256 && (await compare(password, user.passwordHash));
-  if (!isSha256 && !isLegacy) {
+  const isValid = await verifyPassword(password, user.passwordHash);
+  if (!isValid) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  if (isLegacy) {
+  if (isLegacyHash(user.passwordHash)) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: hashPassword(password) },
+      data: { passwordHash: await hashPassword(password) },
     });
   }
 

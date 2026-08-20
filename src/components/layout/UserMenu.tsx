@@ -36,6 +36,7 @@ export default function UserMenu({
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    window.dispatchEvent(new Event("pb:auth"));
     router.push("/");
     router.refresh();
   }

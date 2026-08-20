@@ -23,6 +23,7 @@ export const getWatchData = cache(async function getWatchData(userId: string): P
         series: { select: { name: true, posterPath: true } },
       },
       orderBy: { updatedAt: "desc" },
+      take: 50,
     }),
     prisma.seasonWatch.findMany({
       where: { userId },

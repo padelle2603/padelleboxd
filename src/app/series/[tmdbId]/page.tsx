@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import {
   getTvDetails,
   getUpcomingEpisodes,
@@ -12,13 +11,13 @@ import {
   daysUntil,
   stillUrl,
 } from "@/lib/tmdb";
-import AddToMyList from "@/components/list/AddToMyList";
 import SeasonManager from "@/components/series/SeasonManager";
+import SeriesUserPanel from "@/components/series/SeriesUserPanel";
 import StatusBadge from "@/components/series/StatusBadge";
 import { STATUS_TEXT_COLOR, formatAirDate } from "@/lib/constants";
 import type { SeriesStatus } from "@/lib/constants";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 type Props = PageProps<"/series/[tmdbId]">;
 
@@ -33,43 +32,29 @@ export default async function SeriesPage({ params }: Props) {
   const id = Number(tmdbId);
   if (!Number.isInteger(id)) notFound();
 
-  const [tv, user] = await Promise.all([getTvDetails(id), getCurrentUser()]);
+  const tv = await getTvDetails(id);
   if (!tv) notFound();
 
-  const [tracked, counts, watchedSeasons, watchedEpisodes, upcomingEpisodes] = await Promise.all([
+  const [tracked, counts, upcomingEpisodes] = await Promise.all([
     prisma.userSeries.findMany({
       where: { seriesId: id },
       include: { user: { select: { username: true } } },
       orderBy: { updatedAt: "desc" },
+      take: 100,
     }),
     prisma.userSeries.groupBy({
       by: ["status"],
       where: { seriesId: id },
       _count: { _all: true },
     }),
-    user
-      ? prisma.seasonWatch.findMany({
-          where: { userId: user.id, seriesId: id },
-          select: { seasonNumber: true },
-        })
-      : Promise.resolve([]),
-    user
-      ? prisma.episodeWatch.findMany({
-          where: { userId: user.id, seriesId: id },
-          select: { seasonNumber: true, episodeNumber: true },
-        })
-      : Promise.resolve([]),
     getUpcomingEpisodes(tv, 7),
   ]);
 
-  const watchedSeasonNumbers = watchedSeasons.map((w) => w.seasonNumber);
   const nextToAir = tv.next_episode_to_air ?? null;
 
   const countMap = Object.fromEntries(
     counts.map((c) => [c.status, c._count._all])
   ) as Partial<Record<SeriesStatus, number>>;
-
-  const myEntry = user ? tracked.find((t) => t.userId === user.id) : null;
 
   const backdrop = backdropUrl(tv.backdrop_path);
   const poster = posterUrl(tv.poster_path, "w342");
@@ -128,27 +113,7 @@ export default async function SeriesPage({ params }: Props) {
               {tv.overview && <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-300">{tv.overview}</p>}
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-              {user && isActiveUser(user) ? (
-                <AddToMyList
-                  tmdbId={id}
-                  initialStatus={(myEntry?.status as SeriesStatus) ?? null}
-                  initialRating={myEntry?.rating ?? null}
-                />
-              ) : user && user.role === "PENDING" ? (
-                <p className="text-sm text-zinc-400">
-                  Your account is still awaiting administrator approval. Once approved, you can add
-                  this series to your list.
-                </p>
-              ) : (
-                <p className="text-sm text-zinc-400">
-                  <Link href="/login" className="font-medium text-blue-400 hover:underline">
-                    Log in
-                  </Link>{" "}
-                  to add this series to your list.
-                </p>
-              )}
-            </div>
+            <SeriesUserPanel tmdbId={id} />
           </div>
         </div>
       </div>
@@ -243,13 +208,7 @@ export default async function SeriesPage({ params }: Props) {
             finish it.
           </p>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40">
-            <SeasonManager
-              tmdbId={id}
-              seasons={tv.seasons}
-              watchedSeasons={watchedSeasonNumbers}
-              watchedEpisodes={watchedEpisodes}
-              canEdit={!!user && isActiveUser(user)}
-            />
+            <SeasonManager tmdbId={id} seasons={tv.seasons} />
           </div>
         </section>
       )}

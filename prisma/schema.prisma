@@ -61,6 +61,8 @@ model UserSeries {
   @@unique([userId, seriesId])
   @@index([userId, status])
   @@index([seriesId])
+  @@index([userId, updatedAt])
+  @@index([seriesId, updatedAt])
 }
 
 model SeasonWatch {

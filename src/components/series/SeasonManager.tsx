@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TmdbSeason } from "@/lib/tmdb";
 import { formatAirDate } from "@/lib/constants";
@@ -20,9 +20,9 @@ type SeriesEpisode = {
 type SeasonManagerProps = {
   tmdbId: number;
   seasons: TmdbSeason[];
-  watchedSeasons: number[];
-  watchedEpisodes: WatchedEpisode[];
-  canEdit: boolean;
+  watchedSeasons?: number[];
+  watchedEpisodes?: WatchedEpisode[];
+  canEdit?: boolean;
 };
 
 function episodeKey(seasonNumber: number, episodeNumber: number) {
@@ -44,15 +44,43 @@ export default function SeasonManager({
 }: SeasonManagerProps) {
   const router = useRouter();
   const [watchedSeasonSet, setWatchedSeasonSet] = useState<Set<number>>(
-    () => new Set(watchedSeasons)
+    () => new Set(watchedSeasons ?? [])
   );
   const [watchedEpisodeSet, setWatchedEpisodeSet] = useState<Set<string>>(
-    () => new Set(watchedEpisodes.map((w) => episodeKey(w.seasonNumber, w.episodeNumber)))
+    () => new Set((watchedEpisodes ?? []).map((w) => episodeKey(w.seasonNumber, w.episodeNumber)))
   );
+  const [editable, setEditable] = useState(canEdit ?? false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [episodesBySeason, setEpisodesBySeason] = useState<Record<number, SeriesEpisode[]>>({});
   const [busySeason, setBusySeason] = useState<number | null>(null);
   const [busyEpisode, setBusyEpisode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (watchedSeasons !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/series/${tmdbId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          canEdit: boolean;
+          myWatchedSeasons: number[];
+          myWatchedEpisodes: WatchedEpisode[];
+        };
+        if (cancelled) return;
+        setWatchedSeasonSet(() => new Set(data.myWatchedSeasons));
+        setWatchedEpisodeSet(() =>
+          new Set(data.myWatchedEpisodes.map((w) => episodeKey(w.seasonNumber, w.episodeNumber)))
+        );
+        setEditable(data.canEdit);
+      } catch {
+        // keep logged-out state
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tmdbId, watchedSeasons]);
 
   async function loadSeason(seasonNumber: number) {
     if (episodesBySeason[seasonNumber] || busySeason !== null) return;
@@ -200,7 +228,7 @@ export default function SeasonManager({
                   {s.episode_count > 0 ? ` · ${watchedCount}/${s.episode_count} seen` : ""}
                 </p>
               </button>
-              {canEdit ? (
+              {editable ? (
                 <button
                   type="button"
                   onClick={() => toggleSeason(s.season_number, !isWatched)}
@@ -252,19 +280,19 @@ export default function SeasonManager({
                         <li key={ep.id} className="flex items-center gap-3 py-2">
                           <button
                             type="button"
-                            onClick={() => canEdit && toggleEpisode(ep.seasonNumber, ep.episodeNumber, !isEpWatched)}
-                            disabled={!canEdit || busyEpisode !== null}
+                            onClick={() => editable && toggleEpisode(ep.seasonNumber, ep.episodeNumber, !isEpWatched)}
+                            disabled={!editable || busyEpisode !== null}
                             aria-label={
                               isEpWatched
                                 ? `Mark E${ep.episodeNumber} as not watched`
                                 : `Mark E${ep.episodeNumber} as watched`
                             }
                             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
-                              canEdit ? "cursor-pointer" : "cursor-default"
+                              editable ? "cursor-pointer" : "cursor-default"
                             } ${
                               isEpWatched
                                 ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-400"
-                                : canEdit
+                                : editable
                                   ? "border-zinc-600 text-transparent hover:border-zinc-400"
                                   : "border-zinc-700 text-transparent"
                             } ${isEpBusy ? "opacity-50" : ""}`}
