@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { STATUSES, STATUS_LABEL, STATUS_COLOR, type SeriesStatus } from "@/lib/constants";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 type Entry = {
   tmdbId: number;
@@ -17,7 +17,7 @@ type Entry = {
 const RATING_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
 export default function MyListManager({ initialEntries }: { initialEntries: Entry[] }) {
-  const router = useRouter();
+  const { refresh } = useDbMutation();
   const [entries, setEntries] = useState(initialEntries);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,12 +42,12 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
     const target = entries.find((e) => e.tmdbId === tmdbId);
     const rating = status === "PLANNED" ? null : target?.rating ?? null;
     await patch(tmdbId, { status, rating });
-    router.refresh();
+    await refresh();
   }
 
   async function setRating(tmdbId: number, rating: number) {
     await patch(tmdbId, { rating });
-    router.refresh();
+    await refresh();
   }
 
   async function remove(tmdbId: number) {
@@ -60,7 +60,7 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
         throw new Error(data.error ?? "Something went wrong");
       }
       setEntries((prev) => prev.filter((e) => e.tmdbId !== tmdbId));
-      router.refresh();
+      await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {

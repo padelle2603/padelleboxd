@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 const RATING_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
@@ -14,12 +14,14 @@ export default function AddToMyList({
   tmdbId,
   initialStatus,
   initialRating,
+  onChanged,
 }: {
   tmdbId: number;
   initialStatus: SeriesStatus | null;
   initialRating: number | null;
+  onChanged?: () => void;
 }) {
-  const router = useRouter();
+  const { refresh } = useDbMutation();
   const [status, setStatus] = useState<SeriesStatus>(initialStatus ?? "PLANNED");
   const [rating, setRating] = useState<number | null>(initialRating);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,8 @@ export default function AddToMyList({
         setError(data.error ?? "Something went wrong");
         return;
       }
-      router.refresh();
+      await refresh();
+      onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -58,7 +61,8 @@ export default function AddToMyList({
         setError(data.error ?? "Something went wrong");
         return;
       }
-      router.refresh();
+      await refresh();
+      onChanged?.();
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import AdminShortcut from "@/components/layout/AdminShortcut";
+import PullToRefresh from "@/components/layout/PullToRefresh";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,8 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-zinc-950 text-zinc-100">
         <Header />
         <AdminShortcut />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
-        <footer className="border-t border-zinc-800/80 py-6 text-center text-xs text-zinc-600">
+        <PullToRefresh>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+          <footer className="border-t border-zinc-800/80 py-6 text-center text-xs text-zinc-600">
           <p className="mb-2">
             <a
               href="https://www.themoviedb.org"
@@ -56,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </p>
           <p className="mt-1 text-zinc-700">Built with Next.js.</p>
         </footer>
+        </PullToRefresh>
       </body>
     </html>
   );

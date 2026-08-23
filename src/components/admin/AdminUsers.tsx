@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 type AdminUser = {
   id: string;
@@ -18,7 +18,7 @@ const roleLabel: Record<AdminUser["role"], string> = {
 };
 
 export default function AdminUsers({ initialUsers }: { initialUsers: AdminUser[] }) {
-  const router = useRouter();
+  const { refresh } = useDbMutation();
   const [users, setUsers] = useState(initialUsers);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function AdminUsers({ initialUsers }: { initialUsers: AdminUser[]
       setError((e as Error).message);
     } finally {
       setBusyId(null);
-      router.refresh();
+      await refresh();
     }
   }
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 export default function UserMenu({
   username,
@@ -12,6 +13,7 @@ export default function UserMenu({
   role: string;
 }) {
   const router = useRouter();
+  const { refresh } = useDbMutation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = role === "APPROVED" || role === "ADMIN";
@@ -38,7 +40,7 @@ export default function UserMenu({
     await fetch("/api/auth/logout", { method: "POST" });
     window.dispatchEvent(new Event("pb:auth"));
     router.push("/");
-    router.refresh();
+    await refresh();
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 export default function AuthForm({
   mode,
@@ -9,6 +10,7 @@ export default function AuthForm({
   mode: "login" | "register";
 }) {
   const router = useRouter();
+  const { refresh } = useDbMutation();
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +52,7 @@ export default function AuthForm({
       if (isLogin) {
         window.dispatchEvent(new Event("pb:auth"));
         router.push(`/u/${data.user?.username}`);
-        router.refresh();
+        await refresh();
       } else {
         setSuccess(
           "Account created! Your account is waiting for an administrator to approve it. You'll be able to log in once approved."

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { TmdbSeason } from "@/lib/tmdb";
 import { formatAirDate } from "@/lib/constants";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 type WatchedEpisode = { seasonNumber: number; episodeNumber: number };
 
@@ -42,7 +42,7 @@ export default function SeasonManager({
   watchedEpisodes,
   canEdit,
 }: SeasonManagerProps) {
-  const router = useRouter();
+  const { refresh } = useDbMutation();
   const [watchedSeasonSet, setWatchedSeasonSet] = useState<Set<number>>(
     () => new Set(watchedSeasons ?? [])
   );
@@ -128,7 +128,7 @@ export default function SeasonManager({
           return copy;
         });
       }
-      router.refresh();
+      await refresh();
     } finally {
       setBusySeason(null);
     }
@@ -181,7 +181,7 @@ export default function SeasonManager({
           });
         }
       }
-      router.refresh();
+      await refresh();
     } finally {
       setBusyEpisode(null);
     }

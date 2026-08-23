@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { formatAirDate } from "@/lib/constants";
+import { useDbMutation } from "@/lib/useDbMutation";
 
 type ContinueWatchingEntry = {
   tmdbId: number;
@@ -25,7 +25,7 @@ export default function ContinueWatching({
   initial: ContinueWatchingEntry[];
   username: string;
 }) {
-  const router = useRouter();
+  const { refresh } = useDbMutation();
   const [entries, setEntries] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export default function ContinueWatching({
       }
       // Optimistically drop the entry, then let the server re-render in sync.
       setEntries((prev) => prev.filter((e) => key !== `${e.tmdbId}:${e.seasonNumber}:${e.episodeNumber}`));
-      router.refresh();
+      await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
