@@ -24,73 +24,116 @@ export type ContinueWatchingEntry = {
 };
 
 const getContinueWatchingForUserId = cache(async (userId: string) => {
-    const { tracked, watchedSeasons, watchedEpisodes } = await getWatchData(userId);
+  const { tracked, watchedSeasons, watchedEpisodes } = await getWatchData(userId);
 
-    if (tracked.length === 0) return [];
+  if (tracked.length === 0) return [];
 
-    const results = await Promise.all(
-      tracked.map(async (entry) => {
-        try {
-          const tv = await getTvDetails(entry.seriesId);
-          if (!tv?.seasons) return null;
+  const results = await Promise.all(
+    tracked.map(async (entry) => {
+      try {
+        const tv = await getTvDetails(entry.seriesId);
+        if (!tv?.seasons) return null;
 
-          const seasons = tv.seasons
-            .filter((s) => s.season_number > 0 && (s.episode_count ?? 0) > 0)
-            .sort((a, b) => a.season_number - b.season_number);
+        const seriesId = entry.seriesId;
 
-          const candidateSeasons = seasons.filter((s) => {
-            const seasonKey = `${entry.seriesId}:${s.season_number}`;
-            if (watchedSeasons.has(seasonKey)) return false;
-            const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
-            return watchedSet.size < (s.episode_count ?? 0);
-          });
-
-          const episodesBySeason = await Promise.all(
-            candidateSeasons.map(async (s) => {
-              try {
-                return { season: s, episodes: await getSeasonEpisodes(entry.seriesId, s.season_number) };
-              } catch {
-                return { season: s, episodes: [] as TmdbEpisode[] };
-              }
-            })
-          );
-
-          for (const { season, episodes } of episodesBySeason) {
-            const seasonKey = `${entry.seriesId}:${season.season_number}`;
-            const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
-            const next = episodes
-              .slice()
-              .sort((a, b) => a.episode_number - b.episode_number)
-              .find((e) => !watchedSet.has(e.episode_number));
-            if (!next) continue;
-
+        // Fast path: use next_episode_to_air when it points at an unwatched episode.
+        const next = tv.next_episode_to_air;
+        if (next && next.episode_number != null) {
+          const seasonKey = `${seriesId}:${next.season_number}`;
+          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          const season = tv.seasons.find((s) => s.season_number === next.season_number);
+          if (
+            season &&
+            !watchedSeasons.has(seasonKey) &&
+            !watchedSet.has(next.episode_number)
+          ) {
             const releaseDays = daysUntil(next.air_date);
-            if (releaseDays !== null && releaseDays > MAX_UNRELEASED_AHEAD_DAYS) continue;
-
-            return {
-              tmdbId: entry.seriesId,
-              name: entry.name,
-              posterUrl: posterUrl(entry.posterPath),
-              seasonNumber: season.season_number,
-              episodeNumber: next.episode_number,
-              episodeName: next.name,
-              airDate: next.air_date,
-              seasonEpisodeCount: season.episode_count,
-              seasonProgress: watchedSet.size,
-            } satisfies ContinueWatchingEntry;
+            if (releaseDays === null || releaseDays <= MAX_UNRELEASED_AHEAD_DAYS) {
+              return {
+                tmdbId: seriesId,
+                name: entry.name,
+                posterUrl: posterUrl(entry.posterPath),
+                seasonNumber: next.season_number,
+                episodeNumber: next.episode_number,
+                episodeName: next.name,
+                airDate: next.air_date,
+                seasonEpisodeCount: season.episode_count,
+                seasonProgress: watchedSet.size,
+              } satisfies ContinueWatchingEntry;
+            }
           }
-          return null;
-        } catch {
-          return null;
         }
-      })
-    );
 
-    return results.filter((r): r is ContinueWatchingEntry => r !== null);
+        // Fallback: scan candidate seasons to find the next unwatched episode
+        // (covers shows whose next_episode_to_air is null or already watched).
+        const seasons = tv.seasons
+          .filter((s) => s.season_number > 0 && (s.episode_count ?? 0) > 0)
+          .sort((a, b) => a.season_number - b.season_number);
+
+        const candidateSeasons = seasons.filter((s) => {
+          const seasonKey = `${seriesId}:${s.season_number}`;
+          if (watchedSeasons.has(seasonKey)) return false;
+          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          return watchedSet.size < (s.episode_count ?? 0);
+        });
+
+        const episodesBySeason = await Promise.all(
+          candidateSeasons.map(async (s) => {
+            try {
+              return { season: s, episodes: await getSeasonEpisodes(seriesId, s.season_number) };
+            } catch {
+              return { season: s, episodes: [] as TmdbEpisode[] };
+            }
+          })
+        );
+
+        for (const { season, episodes } of episodesBySeason) {
+          const seasonKey = `${seriesId}:${season.season_number}`;
+          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          const nextEp = episodes
+            .slice()
+            .sort((a, b) => a.episode_number - b.episode_number)
+            .find((e) => !watchedSet.has(e.episode_number));
+          if (!nextEp) continue;
+
+          const releaseDays = daysUntil(nextEp.air_date);
+          if (releaseDays !== null && releaseDays > MAX_UNRELEASED_AHEAD_DAYS) continue;
+
+          return {
+            tmdbId: seriesId,
+            name: entry.name,
+            posterUrl: posterUrl(entry.posterPath),
+            seasonNumber: season.season_number,
+            episodeNumber: nextEp.episode_number,
+            episodeName: nextEp.name,
+            airDate: nextEp.air_date,
+            seasonEpisodeCount: season.episode_count,
+            seasonProgress: watchedSet.size,
+          } satisfies ContinueWatchingEntry;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return results.filter((r): r is ContinueWatchingEntry => r !== null);
 });
+
+const RESULT_TTL_MS = 60 * 1000;
+const resultCache = new Map<string, { at: number; entries: ContinueWatchingEntry[] }>();
+
+export function invalidateContinueWatching(userId: string): void {
+  resultCache.delete(userId);
+}
 
 export async function getContinueWatching(
   user: CurrentUser
 ): Promise<ContinueWatchingEntry[]> {
-  return getContinueWatchingForUserId(user.id);
+  const cached = resultCache.get(user.id);
+  if (cached && Date.now() - cached.at < RESULT_TTL_MS) return cached.entries;
+  const entries = await getContinueWatchingForUserId(user.id);
+  resultCache.set(user.id, { at: Date.now(), entries });
+  return entries;
 }

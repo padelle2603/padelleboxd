@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import SearchBar from "@/components/layout/SearchBar";
 import Logo from "@/components/layout/Logo";
 import { getSiteStats } from "@/lib/stats";
 import HomePersonal from "@/components/home/HomePersonal";
+import HomePersonalSkeleton from "@/components/home/HomePersonalSkeleton";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <HomePersonal />
+      <Suspense fallback={<HomePersonalSkeleton />}>
+        <HomePersonal />
+      </Suspense>
     </div>
   );
 }

@@ -30,20 +30,6 @@ export default function ContinueWatching({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function refreshEntries() {
-    try {
-      const res = await fetch("/api/me/continue-watching");
-      if (res.ok) {
-        const data = await res.json();
-        setEntries(data.entries ?? []);
-        return true;
-      }
-    } catch {
-      // fall through and let router.refresh() handle it
-    }
-    return false;
-  }
-
   async function markWatched(item: ContinueWatchingEntry) {
     if (busy !== null) return;
     const key = `${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}`;
@@ -62,7 +48,8 @@ export default function ContinueWatching({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Could not mark the episode as watched");
       }
-      await refreshEntries();
+      // Optimistically drop the entry, then let the server re-render in sync.
+      setEntries((prev) => prev.filter((e) => key !== `${e.tmdbId}:${e.seasonNumber}:${e.episodeNumber}`));
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
