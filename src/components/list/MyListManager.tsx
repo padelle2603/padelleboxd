@@ -33,20 +33,41 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+        return true;
       })
-      .catch((e: Error) => setError(e.message))
+      .catch((e: Error) => {
+        setError(e.message);
+        return false;
+      })
       .finally(() => setBusyId(null));
   }
 
   async function setStatus(tmdbId: number, status: SeriesStatus) {
     const target = entries.find((e) => e.tmdbId === tmdbId);
     const rating = status === "PLANNED" ? null : target?.rating ?? null;
-    await patch(tmdbId, { status, rating });
+    setEntries((prev) =>
+      prev.map((e) => (e.tmdbId === tmdbId ? { ...e, status, rating } : e))
+    );
+    const ok = await patch(tmdbId, { status, rating });
+    if (!ok) {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.tmdbId === tmdbId ? { ...e, status: target.status, rating: target.rating } : e
+        )
+      );
+    }
     await refresh();
   }
 
   async function setRating(tmdbId: number, rating: number) {
-    await patch(tmdbId, { rating });
+    const target = entries.find((e) => e.tmdbId === tmdbId);
+    setEntries((prev) => prev.map((e) => (e.tmdbId === tmdbId ? { ...e, rating } : e)));
+    const ok = await patch(tmdbId, { rating });
+    if (!ok) {
+      setEntries((prev) =>
+        prev.map((e) => (e.tmdbId === tmdbId ? { ...e, rating: target.rating } : e))
+      );
+    }
     await refresh();
   }
 
