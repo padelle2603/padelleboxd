@@ -49,7 +49,7 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
       prev.map((e) => (e.tmdbId === tmdbId ? { ...e, status, rating } : e))
     );
     const ok = await patch(tmdbId, { status, rating });
-    if (!ok) {
+    if (!ok && target) {
       setEntries((prev) =>
         prev.map((e) =>
           e.tmdbId === tmdbId ? { ...e, status: target.status, rating: target.rating } : e
@@ -63,7 +63,7 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
     const target = entries.find((e) => e.tmdbId === tmdbId);
     setEntries((prev) => prev.map((e) => (e.tmdbId === tmdbId ? { ...e, rating } : e)));
     const ok = await patch(tmdbId, { rating });
-    if (!ok) {
+    if (!ok && target) {
       setEntries((prev) =>
         prev.map((e) => (e.tmdbId === tmdbId ? { ...e, rating: target.rating } : e))
       );
