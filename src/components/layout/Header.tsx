@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/layout/Logo";
 import UserMenu from "@/components/layout/UserMenu";
+import SearchBar from "@/components/layout/SearchBar";
 
 type Me = { id: string; username: string; role: string } | null;
 
@@ -56,13 +57,11 @@ export default function Header() {
           >
             Home
           </Link>
-          <Link
-            href="/search"
-            className="rounded-lg px-3 py-1.5 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
-          >
-            Search
-          </Link>
         </nav>
+
+        <div className="mx-1 min-w-0 flex-1">
+          <SearchBar compact />
+        </div>
 
         <div className="ml-auto flex items-center gap-2 text-sm">
           {loaded ? (

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import SearchBar from "@/components/layout/SearchBar";
 import Logo from "@/components/layout/Logo";
 import { getSiteStats } from "@/lib/stats";
 import HomePersonal from "@/components/home/HomePersonal";
@@ -21,9 +20,6 @@ export default async function HomePage() {
           Keep a personal list of what you&apos;ve watched, abandoned, put on hold
           or plan to watch. Rate every series and share your taste with friends.
         </p>
-        <div className="mx-auto mt-8 max-w-xl">
-          <SearchBar autoFocus />
-        </div>
         <div className="mx-auto mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-zinc-500">
           <span>
             <b className="text-zinc-200">{stats[0]}</b> members
