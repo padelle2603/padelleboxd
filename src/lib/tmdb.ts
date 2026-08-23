@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 const API_BASE = "https://api.themoviedb.org/3";
 const IMAGE_BASE = process.env.TMDB_IMAGE_BASE_URL ?? "https://image.tmdb.org/t/p";
 
-const apiKey = process.env.TMDB_API_KEY;
+const readAccessToken = process.env.TMDB_READ_ACCESS_TOKEN;
 
 export const TMDB_CACHE_TTL_MS = 60 * 60 * 1000;
 export const TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -117,12 +117,17 @@ export function backdropUrl(path: string | null): string | null {
 }
 
 function tmdbFetch(path: string, params: Record<string, string> = {}, cache: "revalidate" | "no-store" = "revalidate") {
-  if (!apiKey) throw new Error("TMDB_API_KEY is not configured");
+  if (!readAccessToken) throw new Error("TMDB_READ_ACCESS_TOKEN is not configured");
   const url = new URL(`${API_BASE}${path}`);
-  url.searchParams.set("api_key", apiKey);
   url.searchParams.set("language", "en-US");
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  return fetch(url, cache === "no-store" ? { cache: "no-store" } : { next: { revalidate: 3600 } });
+  return fetch(url, {
+    headers: {
+      Authorization: `Bearer ${readAccessToken}`,
+      accept: "application/json",
+    },
+    ...(cache === "no-store" ? { cache: "no-store" } : { next: { revalidate: 3600 } }),
+  });
 }
 
 export const searchTv = cache(async function searchTv(query: string): Promise<TmdbTv[]> {

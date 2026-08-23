@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#09090b</color>
+    <color name="colorPrimaryDark">#09090b</color>
+    <color name="colorAccent">#2563eb</color>
+    <color name="pb_background">#09090b</color>
+</resources>
