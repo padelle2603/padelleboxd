@@ -26,9 +26,13 @@ export default function ContinueWatching({
   username: string;
 }) {
   const { refresh } = useDbMutation();
-  const [entries, setEntries] = useState(initial);
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const entries = initial.filter(
+    (e) => !removed.has(`${e.tmdbId}:${e.seasonNumber}:${e.episodeNumber}`)
+  );
 
   async function markWatched(item: ContinueWatchingEntry) {
     if (busy !== null) return;
@@ -48,8 +52,9 @@ export default function ContinueWatching({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Could not mark the episode as watched");
       }
-      // Optimistically drop the entry, then let the server re-render in sync.
-      setEntries((prev) => prev.filter((e) => key !== `${e.tmdbId}:${e.seasonNumber}:${e.episodeNumber}`));
+      // Optimistically hide the entry; the server re-render (router.refresh)
+      // reconciles `initial`, so the next episode (e.g. E6) shows up in sync.
+      setRemoved((prev) => new Set(prev).add(key));
       await refresh();
     } catch (e) {
       setError((e as Error).message);
