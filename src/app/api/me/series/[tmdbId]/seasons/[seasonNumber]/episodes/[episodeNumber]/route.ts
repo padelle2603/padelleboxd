@@ -1,23 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireActiveUser } from "@/lib/auth";
-import { revalidateUserPaths } from "@/lib/revalidate";
-import { invalidateContinueWatching } from "@/lib/continue-watching";
-import { invalidateUpcoming } from "@/lib/upcoming";
+import { withUser } from "@/lib/auth";
+import { jsonError } from "@/lib/http";
+import { getUserSeriesOr404 } from "@/lib/series-entries";
+import { notifyWatchChanged } from "@/lib/revalidate";
 
-type Ctx = {
-  params: Promise<{
-    tmdbId: string;
-    seasonNumber: string;
-    episodeNumber: string;
-  }>;
-};
+type Ctx = RouteContext<
+  "/api/me/series/[tmdbId]/seasons/[seasonNumber]/episodes/[episodeNumber]"
+>;
 
-export async function PATCH(req: NextRequest, ctx: Ctx) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
-
+export const PATCH = withUser(async (req, ctx: Ctx, user) => {
   const { tmdbId, seasonNumber, episodeNumber } = await ctx.params;
   const seriesId = Number(tmdbId);
   const season = Number(seasonNumber);
@@ -29,25 +21,21 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     !Number.isInteger(episode) ||
     episode < 1
   ) {
-    return NextResponse.json({ error: "Invalid series, season or episode number" }, { status: 400 });
+    return jsonError("Invalid series, season or episode number");
   }
 
   const body = await req.json().catch(() => null);
   const watched = body?.watched === true || body?.watched === false ? body.watched : null;
   if (watched === null) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return jsonError("Invalid input");
   }
   const seasonEpisodeCount =
     typeof body?.seasonEpisodeCount === "number" && Number.isInteger(body.seasonEpisodeCount)
       ? body.seasonEpisodeCount
       : null;
 
-  const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user.id, seriesId } },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
-  }
+  const found = await getUserSeriesOr404(user.id, seriesId);
+  if (!found.ok) return found.response;
 
   if (watched) {
     await prisma.episodeWatch.upsert({
@@ -72,9 +60,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         create: { userId: user.id, seriesId, seasonNumber: season },
       });
     }
-    invalidateContinueWatching(user.id);
-    invalidateUpcoming(user.id);
-    revalidateUserPaths(user.username, seriesId);
+    notifyWatchChanged(user, seriesId);
     return NextResponse.json({ watched: true });
   }
 
@@ -84,8 +70,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   await prisma.seasonWatch.deleteMany({
     where: { userId: user.id, seriesId, seasonNumber: season },
   });
-  invalidateContinueWatching(user.id);
-  invalidateUpcoming(user.id);
-  revalidateUserPaths(user.username, seriesId);
+  notifyWatchChanged(user, seriesId);
   return NextResponse.json({ watched: false });
-}
+});

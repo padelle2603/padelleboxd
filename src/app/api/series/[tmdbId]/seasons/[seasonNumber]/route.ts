@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { getSeasonEpisodes, stillUrl } from "@/lib/tmdb";
 
-type Ctx = { params: Promise<{ tmdbId: string; seasonNumber: string }> };
+type Ctx = RouteContext<"/api/series/[tmdbId]/seasons/[seasonNumber]">;
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const { tmdbId, seasonNumber } = await ctx.params;

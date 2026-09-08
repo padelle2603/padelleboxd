@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
+import {
+  STATUSES,
+  STATUS_LABEL,
+  RATING_OPTIONS,
+  canRate,
+  type SeriesStatus,
+} from "@/lib/constants";
 import { useDbMutation } from "@/lib/useDbMutation";
-
-const RATING_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-
-function canRate(status: SeriesStatus) {
-  return status === "WATCHED" || status === "ABANDONED";
-}
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 export default function AddToMyList({
   tmdbId,
@@ -114,11 +115,7 @@ export default function AddToMyList({
         )}
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      <ErrorBanner message={error} />
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={busy} className="btn-primary" style={{ fontSize: "0.875rem", padding: "0.5rem 1rem" }}>

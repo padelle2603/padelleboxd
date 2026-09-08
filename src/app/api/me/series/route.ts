@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireActiveUser } from "@/lib/auth";
+import { withUser } from "@/lib/auth";
 import { getTvDetails, tvToSeriesData, posterUrl } from "@/lib/tmdb";
 import { revalidateUserPaths } from "@/lib/revalidate";
-
-const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
+import { STATUSES } from "@/lib/constants";
+import { parseJsonBody, jsonError } from "@/lib/http";
 
 const addSchema = z.object({
   tmdbId: z.number().int().positive(),
@@ -13,11 +13,7 @@ const addSchema = z.object({
   rating: z.number().int().min(1).max(10).nullable().optional(),
 });
 
-export async function GET(req: NextRequest) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
-
+export const GET = withUser(async (req, _ctx, user) => {
   const status = req.nextUrl.searchParams.get("status");
   const statusFilter =
     status && STATUSES.includes(status as (typeof STATUSES)[number])
@@ -58,35 +54,22 @@ export async function GET(req: NextRequest) {
       },
     })),
   });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
+export const POST = withUser(async (req, _ctx, user) => {
+  const body = await parseJsonBody(req, addSchema);
+  if (!body.ok) return body.response;
 
-  const body = await req.json().catch(() => null);
-  const parsed = addSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
-
-  const { tmdbId, status, rating } = parsed.data;
+  const { tmdbId, status, rating } = body.data;
 
   if (rating != null && status === "PLANNED") {
-    return NextResponse.json(
-      { error: "You cannot rate a series in your planned list." },
-      { status: 400 }
-    );
+    return jsonError("You cannot rate a series in your planned list.");
   }
 
   const existing = await prisma.series.findUnique({ where: { tmdbId } });
   if (!existing) {
     const tv = await getTvDetails(tmdbId);
-    if (!tv) return NextResponse.json({ error: "Series not found" }, { status: 404 });
+    if (!tv) return jsonError("Series not found", 404);
     await prisma.series.create({ data: tvToSeriesData(tv) });
   }
 
@@ -98,4 +81,4 @@ export async function POST(req: NextRequest) {
 
   revalidateUserPaths(user.username, tmdbId);
   return NextResponse.json({ entry }, { status: 201 });
-}
+});

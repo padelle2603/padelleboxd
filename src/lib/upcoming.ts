@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { isActiveUser, type CurrentUser } from "@/lib/auth";
-import { getWatchData } from "@/lib/watch-data";
+import { getWatchData, episodeKey } from "@/lib/watch-data";
+import { createTtlCache } from "@/lib/ttl-cache";
 import {
   getTvDetails,
   getSeasonEpisodes,
@@ -8,6 +9,7 @@ import {
   daysUntil,
   type TmdbEpisode,
 } from "@/lib/tmdb";
+import { candidateSeasonNumbers } from "@/lib/planning";
 
 export type UpcomingCard = {
   tmdbId: number;
@@ -41,7 +43,9 @@ const getUpcomingForUserId = cache(async (userId: string) => {
           const d = daysUntil(next.air_date);
           if (
             inWindow(d) &&
-            !watchedEpisodeKeys.has(`${t.seriesId}:${next.season_number}:${next.episode_number}`)
+            !watchedEpisodeKeys.has(
+              episodeKey(t.seriesId, next.season_number, next.episode_number)
+            )
           ) {
             return {
               tmdbId: t.seriesId,
@@ -58,17 +62,11 @@ const getUpcomingForUserId = cache(async (userId: string) => {
 
         // Fallback: scan candidate seasons (ended/hiatus shows) for the first
         // upcoming, unwatched episode.
-        const seasonNums = new Set<number>();
-        if (next?.season_number != null) {
-          seasonNums.add(next.season_number);
-          seasonNums.add(next.season_number + 1);
-        } else if (tv.last_episode_to_air?.season_number != null) {
-          seasonNums.add(tv.last_episode_to_air.season_number + 1);
-        }
+        const seasonNums = candidateSeasonNumbers(tv);
 
         const candidates = (
           await Promise.all(
-            [...seasonNums].map(async (n) => {
+            seasonNums.map(async (n) => {
               try {
                 return await getSeasonEpisodes(t.seriesId, n);
               } catch {
@@ -83,7 +81,11 @@ const getUpcomingForUserId = cache(async (userId: string) => {
             if (!ep.air_date) return false;
             const d = daysUntil(ep.air_date);
             if (!inWindow(d)) return false;
-            if (watchedEpisodeKeys.has(`${t.seriesId}:${ep.season_number}:${ep.episode_number}`)) {
+            if (
+              watchedEpisodeKeys.has(
+                episodeKey(t.seriesId, ep.season_number, ep.episode_number)
+              )
+            ) {
               return false;
             }
             return true;
@@ -115,10 +117,10 @@ const getUpcomingForUserId = cache(async (userId: string) => {
 });
 
 const RESULT_TTL_MS = 60 * 1000;
-const resultCache = new Map<string, { at: number; entries: UpcomingCard[] }>();
+const resultCache = createTtlCache<UpcomingCard[]>(RESULT_TTL_MS);
 
 export function invalidateUpcoming(userId: string): void {
-  resultCache.delete(userId);
+  resultCache.invalidate(userId);
 }
 
 export async function getUpcomingForUser(
@@ -126,8 +128,8 @@ export async function getUpcomingForUser(
 ): Promise<UpcomingCard[]> {
   if (!user || !isActiveUser(user)) return [];
   const cached = resultCache.get(user.id);
-  if (cached && Date.now() - cached.at < RESULT_TTL_MS) return cached.entries;
+  if (cached) return cached;
   const entries = await getUpcomingForUserId(user.id);
-  resultCache.set(user.id, { at: Date.now(), entries });
+  resultCache.set(user.id, entries);
   return entries;
 }

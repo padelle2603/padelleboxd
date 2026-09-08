@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { posterUrl } from "@/lib/tmdb";
+import { seriesRowToCard } from "@/lib/serializers";
 import type { PosterCardSeries } from "@/components/series/PosterCard";
 import ProfileViewer from "@/components/u/ProfileViewer";
+import type { SeriesStatus } from "@/lib/constants";
 
 export const revalidate = 300;
 
@@ -43,15 +44,13 @@ export default async function UserProfilePage({ params }: Props) {
 
   if (!profile || (profile.role !== "APPROVED" && profile.role !== "ADMIN")) notFound();
 
-  const cards: PosterCardSeries[] = profile.list.map((e) => ({
-    tmdbId: e.series.tmdbId,
-    name: e.series.name,
-    posterUrl: posterUrl(e.series.posterPath),
-    firstAirDate: e.series.firstAirDate,
-    tmdbRating: e.series.tmdbRating,
-    status: e.status as PosterCardSeries["status"],
-    rating: e.rating,
-  }));
+  const cards: PosterCardSeries[] = profile.list.map((e) =>
+    seriesRowToCard({
+      ...e.series,
+      status: e.status as SeriesStatus,
+      rating: e.rating,
+    })
+  );
 
   return <ProfileViewer username={profile.username} cards={cards} />;
 }

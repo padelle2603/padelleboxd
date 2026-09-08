@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { formatAirDate } from "@/lib/constants";
 import { useDbMutation } from "@/lib/useDbMutation";
+import SeriesPoster from "@/components/series/SeriesPoster";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 type ContinueWatchingEntry = {
   tmdbId: number;
@@ -71,11 +72,9 @@ export default function ContinueWatching({
           My list →
         </Link>
       </div>
-      {error && (
-        <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      <div className="mb-3">
+        <ErrorBanner message={error} />
+      </div>
       <ul className="divide-y divide-zinc-800/80 rounded-2xl border border-zinc-800 bg-zinc-900/40">
         {entries.map((item) => {
           const key = `${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}`;
@@ -84,21 +83,14 @@ export default function ContinueWatching({
             <li key={key} className="flex items-center gap-4 px-4 py-3">
               <Link
                 href={`/series/${item.tmdbId}`}
-                className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md border border-zinc-800 bg-zinc-900"
+                className="shrink-0"
               >
-                {item.posterUrl ? (
-                  <Image
-                    src={item.posterUrl}
-                    alt={item.name}
-                    fill
-                    sizes="44px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center p-1 text-center text-[10px] leading-tight text-zinc-500">
-                    {item.name}
-                  </div>
-                )}
+                <SeriesPoster
+                  src={item.posterUrl}
+                  alt={item.name}
+                  sizes="44px"
+                  className="h-16 w-11 rounded-md border border-zinc-800 bg-zinc-900"
+                />
               </Link>
 
               <Link href={`/series/${item.tmdbId}`} className="group min-w-0 flex-1">

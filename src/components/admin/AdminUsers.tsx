@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDbMutation } from "@/lib/useDbMutation";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 type AdminUser = {
   id: string;
@@ -50,11 +51,7 @@ export default function AdminUsers({ initialUsers }: { initialUsers: AdminUser[]
 
   return (
     <div className="space-y-8">
-      {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      <ErrorBanner message={error} />
 
       <section>
         <h2 className="mb-3 text-lg font-bold text-zinc-100">

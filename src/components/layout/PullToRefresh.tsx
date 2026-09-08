@@ -102,12 +102,12 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
           {phase === "refreshing" ? (
             <>
               <Spinner />
-              <span>Aggiorno…</span>
+              <span>Refreshing…</span>
             </>
           ) : (
             <>
               <Arrow rotated={phase === "ready"} progress={pullProgress} />
-              <span>{phase === "ready" ? "Rilascia per aggiornare" : "Tira per aggiornare"}</span>
+              <span>{phase === "ready" ? "Release to refresh" : "Pull to refresh"}</span>
             </>
           )}
         </div>

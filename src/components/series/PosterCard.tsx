@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { formatDate } from "@/lib/constants";
 import StatusBadge from "@/components/series/StatusBadge";
+import SeriesPoster from "@/components/series/SeriesPoster";
 import type { SeriesStatus } from "@/lib/constants";
 
 export type PosterCardSeries = {
@@ -20,20 +20,11 @@ export default function PosterCard({ series }: { series: PosterCardSeries }) {
       href={`/series/${series.tmdbId}`}
       className="group block rounded-xl border border-zinc-800 bg-zinc-900/60 p-2 transition hover:border-zinc-700 hover:bg-zinc-900"
     >
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-zinc-800">
-        {series.posterUrl ? (
-          <Image
-            src={series.posterUrl}
-            alt={series.name}
-            fill
-            sizes="(max-width: 640px) 50vw, 256px"
-            className="object-cover transition duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center p-3 text-center text-xs text-zinc-500">
-            {series.name}
-          </div>
-        )}
+      <SeriesPoster
+        src={series.posterUrl}
+        alt={series.name}
+        className="aspect-[2/3] rounded-lg bg-zinc-800"
+      >
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent p-2 pt-8">
           {series.tmdbRating != null && series.tmdbRating > 0 && (
             <span className="flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">
@@ -50,7 +41,7 @@ export default function PosterCard({ series }: { series: PosterCardSeries }) {
           )}
           {series.status && <StatusBadge status={series.status} />}
         </div>
-      </div>
+      </SeriesPoster>
       <div className="mt-2 px-0.5">
         <p className="line-clamp-1 text-sm font-semibold text-zinc-100">{series.name}</p>
         <p className="text-xs text-zinc-500">{formatDate(series.firstAirDate ?? null)}</p>

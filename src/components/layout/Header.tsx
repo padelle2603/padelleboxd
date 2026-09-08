@@ -1,46 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/layout/Logo";
 import UserMenu from "@/components/layout/UserMenu";
 import SearchBar from "@/components/layout/SearchBar";
-
-type Me = { id: string; username: string; role: string } | null;
+import { AUTH_EVENT, useCurrentUser } from "@/lib/client-auth";
 
 export default function Header() {
   const pathname = usePathname();
-  const [user, setUser] = useState<Me>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  const refresh = useCallback(() => {
-    let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setUser(data.user ?? null);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { user, loaded, refresh } = useCurrentUser();
 
   useEffect(() => {
-    const cleanup = refresh();
     const onAuthChange = () => {
-      setLoaded(false);
       void refresh();
     };
-    window.addEventListener("pb:auth", onAuthChange);
-    return () => {
-      cleanup();
-      window.removeEventListener("pb:auth", onAuthChange);
-    };
+    window.addEventListener(AUTH_EVENT, onAuthChange);
+    return () => window.removeEventListener(AUTH_EVENT, onAuthChange);
+  }, [refresh]);
+
+  useEffect(() => {
+    void refresh();
   }, [pathname, refresh]);
 
   return (

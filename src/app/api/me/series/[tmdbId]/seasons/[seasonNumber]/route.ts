@@ -1,35 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireActiveUser } from "@/lib/auth";
+import { withUser } from "@/lib/auth";
 import { getSeasonEpisodes } from "@/lib/tmdb";
-import { revalidateUserPaths } from "@/lib/revalidate";
+import { jsonError } from "@/lib/http";
+import { getUserSeriesOr404 } from "@/lib/series-entries";
+import { notifyWatchChanged } from "@/lib/revalidate";
 
-type Ctx = { params: Promise<{ tmdbId: string; seasonNumber: string }> };
+type Ctx = RouteContext<"/api/me/series/[tmdbId]/seasons/[seasonNumber]">;
 
-export async function PATCH(req: NextRequest, ctx: Ctx) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
-
+export const PATCH = withUser(async (req, ctx: Ctx, user) => {
   const { tmdbId, seasonNumber } = await ctx.params;
   const seriesId = Number(tmdbId);
   const season = Number(seasonNumber);
   if (!Number.isInteger(seriesId) || !Number.isInteger(season) || season < 0) {
-    return NextResponse.json({ error: "Invalid series id or season number" }, { status: 400 });
+    return jsonError("Invalid series id or season number");
   }
 
   const body = await req.json().catch(() => null);
   const watched = body?.watched === true || body?.watched === false ? body.watched : null;
   if (watched === null) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return jsonError("Invalid input");
   }
 
-  const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user.id, seriesId } },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
-  }
+  const found = await getUserSeriesOr404(user.id, seriesId);
+  if (!found.ok) return found.response;
 
   if (watched) {
     const entry = await prisma.seasonWatch.upsert({
@@ -59,7 +53,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       // best effort: even if TMDB is unreachable the season is marked watched
     }
 
-    revalidateUserPaths(user.username, seriesId);
+    notifyWatchChanged(user, seriesId);
 
     return NextResponse.json({
       entry,
@@ -73,6 +67,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   await prisma.episodeWatch.deleteMany({
     where: { userId: user.id, seriesId, seasonNumber: season },
   });
-  revalidateUserPaths(user.username, seriesId);
+  notifyWatchChanged(user, seriesId);
   return NextResponse.json({ unwatched: true });
-}
+});

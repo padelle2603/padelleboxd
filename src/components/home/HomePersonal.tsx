@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { formatAirDate } from "@/lib/constants";
 import { getCurrentUser, isActiveUser } from "@/lib/auth";
 import { getContinueWatching } from "@/lib/continue-watching";
 import { getUpcomingForUser, type UpcomingCard } from "@/lib/upcoming";
 import ContinueWatching from "@/components/home/ContinueWatching";
+import SeriesPoster from "@/components/series/SeriesPoster";
 
 export default async function HomePersonal() {
   const user = await getCurrentUser();
@@ -48,20 +48,11 @@ function UpNext({ entries, username }: { entries: UpcomingCard[]; username: stri
         {entries.map((u) => (
           <li key={`${u.tmdbId}:${u.seasonNumber}:${u.episodeNumber}`} className="group">
             <Link href={`/series/${u.tmdbId}`} className="block">
-              <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
-                {u.posterUrl ? (
-                  <Image
-                    src={u.posterUrl}
-                    alt={u.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, 256px"
-                    className="object-cover transition duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center p-3 text-center text-xs text-zinc-500">
-                    {u.name}
-                  </div>
-                )}
+              <SeriesPoster
+                src={u.posterUrl}
+                alt={u.name}
+                className="aspect-[2/3] rounded-xl border border-zinc-800 bg-zinc-900/60"
+              >
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2 pt-10">
                   <span className="rounded bg-sky-600/90 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                     {u.daysUntil === 0
@@ -71,7 +62,7 @@ function UpNext({ entries, username }: { entries: UpcomingCard[]; username: stri
                         : `S${u.seasonNumber}E${u.episodeNumber} · ${formatAirDate(u.airDate)}`}
                   </span>
                 </div>
-              </div>
+              </SeriesPoster>
               <p className="mt-2 px-0.5">
                 <span className="line-clamp-1 text-sm font-semibold text-zinc-100 group-hover:text-blue-300">
                   {u.name}

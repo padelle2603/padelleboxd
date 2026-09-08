@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cache } from "react";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/db";
 
@@ -130,4 +130,26 @@ export async function requireAdmin(): Promise<AuthResult<CurrentUser>> {
     return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { ok: true, user: user! };
+}
+
+export type RouteHandler<TCtx> = (
+  req: NextRequest,
+  ctx: TCtx,
+  user: CurrentUser
+) => Promise<NextResponse>;
+
+export function withUser<TCtx>(handler: RouteHandler<TCtx>) {
+  return async (req: NextRequest, ctx: TCtx) => {
+    const auth = await requireActiveUser();
+    if (!auth.ok) return auth.response;
+    return handler(req, ctx, auth.user);
+  };
+}
+
+export function withAdmin<TCtx>(handler: RouteHandler<TCtx>) {
+  return async (req: NextRequest, ctx: TCtx) => {
+    const auth = await requireAdmin();
+    if (!auth.ok) return auth.response;
+    return handler(req, ctx, auth.user);
+  };
 }

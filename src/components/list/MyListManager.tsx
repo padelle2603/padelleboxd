@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { STATUSES, STATUS_LABEL, STATUS_COLOR, type SeriesStatus } from "@/lib/constants";
+import {
+  STATUSES,
+  STATUS_LABEL,
+  STATUS_COLOR,
+  RATING_OPTIONS,
+  canRate,
+  type SeriesStatus,
+} from "@/lib/constants";
 import { useDbMutation } from "@/lib/useDbMutation";
+import SeriesPoster from "@/components/series/SeriesPoster";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 type Entry = {
   tmdbId: number;
@@ -13,8 +21,6 @@ type Entry = {
   status: SeriesStatus;
   rating: number | null;
 };
-
-const RATING_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
 export default function MyListManager({ initialEntries }: { initialEntries: Entry[] }) {
   const { refresh } = useDbMutation();
@@ -91,11 +97,7 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
 
   return (
     <div className="space-y-4">
-      {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      <ErrorBanner message={error} />
 
       {entries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 px-4 py-16 text-center">
@@ -110,28 +112,18 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {entries.map((e) => {
-            const canRate = e.status === "WATCHED" || e.status === "ABANDONED";
+            const rated = canRate(e.status);
             return (
               <li
                 key={e.tmdbId}
                 className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/60 p-2"
               >
                 <Link href={`/series/${e.tmdbId}`} className="group">
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-zinc-800">
-                    {e.posterUrl ? (
-                      <Image
-                        src={e.posterUrl}
-                        alt={e.name}
-                        fill
-                        sizes="(max-width: 640px) 50vw, 256px"
-                        className="object-cover transition duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center p-3 text-center text-xs text-zinc-500">
-                        {e.name}
-                      </div>
-                    )}
-                  </div>
+                  <SeriesPoster
+                    src={e.posterUrl}
+                    alt={e.name}
+                    className="aspect-[2/3] rounded-lg bg-zinc-800"
+                  />
                   <p className="mt-2 line-clamp-1 px-0.5 text-sm font-semibold text-zinc-100">
                     {e.name}
                   </p>
@@ -151,7 +143,7 @@ export default function MyListManager({ initialEntries }: { initialEntries: Entr
                     ))}
                   </select>
 
-                  {canRate && (
+                  {rated && (
                     <div className="flex items-center justify-center gap-0.5">
                       {RATING_OPTIONS.map((r) => (
                         <button

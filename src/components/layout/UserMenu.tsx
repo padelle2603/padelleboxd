@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDbMutation } from "@/lib/useDbMutation";
+import { AUTH_EVENT, isActiveRole } from "@/lib/client-auth";
 
 export default function UserMenu({
   username,
@@ -16,7 +17,7 @@ export default function UserMenu({
   const { refresh } = useDbMutation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const active = role === "APPROVED" || role === "ADMIN";
+  const active = isActiveRole(role);
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +39,7 @@ export default function UserMenu({
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    window.dispatchEvent(new Event("pb:auth"));
+    window.dispatchEvent(new Event(AUTH_EVENT));
     router.push("/");
     await refresh();
   }

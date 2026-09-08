@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type { CurrentUser } from "@/lib/auth";
-import { getWatchData } from "@/lib/watch-data";
+import { getWatchData, seasonKey } from "@/lib/watch-data";
+import { createTtlCache } from "@/lib/ttl-cache";
 import {
   getTvDetails,
   getSeasonEpisodes,
@@ -39,12 +40,12 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
         // Fast path: use next_episode_to_air when it points at an unwatched episode.
         const next = tv.next_episode_to_air;
         if (next && next.episode_number != null) {
-          const seasonKey = `${seriesId}:${next.season_number}`;
-          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          const key = seasonKey(seriesId, next.season_number);
+          const watchedSet = watchedEpisodes.get(key) ?? new Set<number>();
           const season = tv.seasons.find((s) => s.season_number === next.season_number);
           if (
             season &&
-            !watchedSeasons.has(seasonKey) &&
+            !watchedSeasons.has(key) &&
             !watchedSet.has(next.episode_number)
           ) {
             const releaseDays = daysUntil(next.air_date);
@@ -71,9 +72,9 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
           .sort((a, b) => a.season_number - b.season_number);
 
         const candidateSeasons = seasons.filter((s) => {
-          const seasonKey = `${seriesId}:${s.season_number}`;
-          if (watchedSeasons.has(seasonKey)) return false;
-          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          const key = seasonKey(seriesId, s.season_number);
+          if (watchedSeasons.has(key)) return false;
+          const watchedSet = watchedEpisodes.get(key) ?? new Set<number>();
           return watchedSet.size < (s.episode_count ?? 0);
         });
 
@@ -88,8 +89,8 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
         );
 
         for (const { season, episodes } of episodesBySeason) {
-          const seasonKey = `${seriesId}:${season.season_number}`;
-          const watchedSet = watchedEpisodes.get(seasonKey) ?? new Set<number>();
+          const key = seasonKey(seriesId, season.season_number);
+          const watchedSet = watchedEpisodes.get(key) ?? new Set<number>();
           const nextEp = episodes
             .slice()
             .sort((a, b) => a.episode_number - b.episode_number)
@@ -122,18 +123,18 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
 });
 
 const RESULT_TTL_MS = 60 * 1000;
-const resultCache = new Map<string, { at: number; entries: ContinueWatchingEntry[] }>();
+const resultCache = createTtlCache<ContinueWatchingEntry[]>(RESULT_TTL_MS);
 
 export function invalidateContinueWatching(userId: string): void {
-  resultCache.delete(userId);
+  resultCache.invalidate(userId);
 }
 
 export async function getContinueWatching(
   user: CurrentUser
 ): Promise<ContinueWatchingEntry[]> {
   const cached = resultCache.get(user.id);
-  if (cached && Date.now() - cached.at < RESULT_TTL_MS) return cached.entries;
+  if (cached) return cached;
   const entries = await getContinueWatchingForUserId(user.id);
-  resultCache.set(user.id, { at: Date.now(), entries });
+  resultCache.set(user.id, entries);
   return entries;
 }

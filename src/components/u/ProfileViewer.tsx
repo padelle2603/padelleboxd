@@ -1,17 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
 import MyListManager from "@/components/list/MyListManager";
 import { STATUSES, STATUS_LABEL, type SeriesStatus } from "@/lib/constants";
-
-type Me = { id: string; username: string; role: string } | null;
-
-function isActive(user: Me): boolean {
-  return user?.role === "APPROVED" || user?.role === "ADMIN";
-}
+import { isActiveRole, useCurrentUser } from "@/lib/client-auth";
 
 export default function ProfileViewer({
   username,
@@ -22,28 +16,9 @@ export default function ProfileViewer({
 }) {
   const searchParams = useSearchParams();
   const activeStatus = (searchParams.get("status") ?? "") as SeriesStatus | "";
-  const [me, setMe] = useState<Me>(null);
-  const [loaded, setLoaded] = useState(false);
+  const { user: me, loaded } = useCurrentUser();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const data = (await res.json()) as { user: Me };
-        if (!cancelled) setMe(data.user ?? null);
-      } catch {
-        // treat as logged out
-      } finally {
-        if (!cancelled) setLoaded(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const isOwn = loaded && isActive(me) && me?.username === username;
+  const isOwn = loaded && me && isActiveRole(me.role) && me.username === username;
 
   if (isOwn && me) {
     const entries = cards.map((e) => ({

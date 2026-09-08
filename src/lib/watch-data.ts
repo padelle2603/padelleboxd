@@ -1,6 +1,14 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 
+export function seasonKey(seriesId: number, seasonNumber: number): string {
+  return `${seriesId}:${seasonNumber}`;
+}
+
+export function episodeKey(seriesId: number, seasonNumber: number, episodeNumber: number): string {
+  return `${seasonKey(seriesId, seasonNumber)}:${episodeNumber}`;
+}
+
 export type TrackedSeries = {
   seriesId: number;
   name: string;
@@ -36,16 +44,16 @@ export const getWatchData = cache(async function getWatchData(userId: string): P
   ]);
 
   const watchedSeasons = new Set(
-    seasonWatches.map((w) => `${w.seriesId}:${w.seasonNumber}`)
+    seasonWatches.map((w) => seasonKey(w.seriesId, w.seasonNumber))
   );
   const watchedEpisodes = new Map<string, Set<number>>();
   const watchedEpisodeKeys = new Set<string>();
   for (const w of episodeWatches) {
-    const key = `${w.seriesId}:${w.seasonNumber}`;
+    const key = seasonKey(w.seriesId, w.seasonNumber);
     const set = watchedEpisodes.get(key) ?? new Set<number>();
     set.add(w.episodeNumber);
     watchedEpisodes.set(key, set);
-    watchedEpisodeKeys.add(`${key}:${w.episodeNumber}`);
+    watchedEpisodeKeys.add(episodeKey(w.seriesId, w.seasonNumber, w.episodeNumber));
   }
 
   return {

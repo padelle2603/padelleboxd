@@ -2,6 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
+import { daysUntil, todayStr as todayDateStr } from "@/lib/dates";
+import { candidateSeasonNumbers } from "@/lib/planning";
 
 const API_BASE = "https://api.themoviedb.org/3";
 const IMAGE_BASE = process.env.TMDB_IMAGE_BASE_URL ?? "https://image.tmdb.org/t/p";
@@ -190,35 +192,14 @@ export function stillUrl(path: string | null, size = "w300"): string | null {
   return `${IMAGE_BASE}/${size}${path}`;
 }
 
-export function todayDateStr(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-export function daysUntil(dateStr: string | null | undefined): number | null {
-  if (!dateStr) return null;
-  const [y, m, d] = dateStr.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  const target = new Date(y, m - 1, d);
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((target.getTime() - start.getTime()) / 86400000);
-}
+export { todayDateStr, daysUntil };
 
 export async function getUpcomingEpisodes(tv: TmdbTv, max = 7): Promise<TmdbEpisode[]> {
   const today = todayDateStr();
-  const seasonNums = new Set<number>();
-  if (tv.next_episode_to_air?.season_number != null) {
-    seasonNums.add(tv.next_episode_to_air.season_number);
-    seasonNums.add(tv.next_episode_to_air.season_number + 1);
-  } else if (tv.last_episode_to_air?.season_number != null) {
-    seasonNums.add(tv.last_episode_to_air.season_number + 1);
-  }
+  const seasonNums = candidateSeasonNumbers(tv);
   const all = (
     await Promise.all(
-      [...seasonNums].map(async (n) => {
+      seasonNums.map(async (n) => {
         try {
           return await getSeasonEpisodes(tv.id, n);
         } catch {

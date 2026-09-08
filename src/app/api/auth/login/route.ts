@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/auth";
+import { parseJsonBody, jsonError } from "@/lib/http";
 import { hashPassword, verifyPassword, isLegacyHash } from "@/lib/password";
 
 const loginSchema = z.object({
@@ -10,27 +11,21 @@ const loginSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = loginSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
+  const body = await parseJsonBody(req, loginSchema);
+  if (!body.ok) return body.response;
 
-  const { identifier, password } = parsed.data;
+  const { identifier, password } = body.data;
   const user = await prisma.user.findUnique({
     where: { username: identifier },
   });
 
   if (!user) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    return jsonError("Invalid credentials", 401);
   }
 
   const isValid = await verifyPassword(password, user.passwordHash);
   if (!isValid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    return jsonError("Invalid credentials", 401);
   }
 
   if (isLegacyHash(user.passwordHash)) {
@@ -41,17 +36,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (user.role === "PENDING") {
-    return NextResponse.json(
-      { error: "Your account is still waiting for administrator approval." },
-      { status: 403 }
-    );
+    return jsonError("Your account is still waiting for administrator approval.", 403);
   }
 
   if (user.role === "REJECTED") {
-    return NextResponse.json(
-      { error: "Your account was not approved. Contact an administrator." },
-      { status: 403 }
-    );
+    return jsonError("Your account was not approved. Contact an administrator.", 403);
   }
 
   const token = await createSessionToken(user);

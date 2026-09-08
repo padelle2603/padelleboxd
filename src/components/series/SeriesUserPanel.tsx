@@ -4,62 +4,43 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AddToMyList from "@/components/list/AddToMyList";
 import { useDbMutation } from "@/lib/useDbMutation";
+import { isActiveRole, useCurrentUser } from "@/lib/client-auth";
 import type { SeriesStatus } from "@/lib/constants";
-
-type Me = { id: string; username: string; role: string } | null;
 
 type MyEntry = { status: string; rating: number | null } | null;
 
 export default function SeriesUserPanel({ tmdbId }: { tmdbId: number }) {
-  const [user, setUser] = useState<Me>(null);
+  const { user, loaded, refresh: refreshUser } = useCurrentUser();
   const [myEntry, setMyEntry] = useState<MyEntry>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchEntry = useCallback(async () => {
     try {
-      const [meRes, seriesRes] = await Promise.all([
-        fetch("/api/auth/me", { cache: "no-store" }),
-        fetch(`/api/series/${tmdbId}`, { cache: "no-store" }),
-      ]);
-      const [me, series] = await Promise.all([meRes.json(), seriesRes.json()]);
-      return { user: (me.user ?? null) as Me, myEntry: (series.myEntry ?? null) as MyEntry };
+      const res = await fetch(`/api/series/${tmdbId}`, { cache: "no-store" });
+      const data = (await res.json()) as { myEntry: MyEntry };
+      setMyEntry(data.myEntry ?? null);
     } catch {
-      return null;
+      setMyEntry(null);
     }
   }, [tmdbId]);
 
-  const loadData = useCallback(async () => {
-    const data = await fetchData();
-    if (data) {
-      setUser(data.user);
-      setMyEntry(data.myEntry);
-    }
-    setLoaded(true);
-  }, [fetchData]);
-
-  const { refresh } = useDbMutation({ refetch: loadData });
-
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const data = await fetchData();
-      if (cancelled) return;
-      if (data) {
-        setUser(data.user);
-        setMyEntry(data.myEntry);
-      }
-      setLoaded(true);
+    void (async () => {
+      await fetchEntry();
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchData]);
+  }, [fetchEntry]);
+
+  const { refresh } = useDbMutation({
+    refetch: () => {
+      void refreshUser();
+      void fetchEntry();
+    },
+  });
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
       {!loaded ? (
         <div className="h-9 animate-pulse rounded-lg bg-zinc-800/70" />
-      ) : user && (user.role === "APPROVED" || user.role === "ADMIN") ? (
+      ) : user && isActiveRole(user.role) ? (
         <AddToMyList
           tmdbId={tmdbId}
           initialStatus={(myEntry?.status as SeriesStatus) ?? null}

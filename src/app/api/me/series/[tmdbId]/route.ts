@@ -1,11 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireActiveUser } from "@/lib/auth";
+import { withUser } from "@/lib/auth";
 import { getTvDetails, getSeasonEpisodes, todayDateStr } from "@/lib/tmdb";
 import { revalidateUserPaths } from "@/lib/revalidate";
+import { STATUSES } from "@/lib/constants";
+import { parseJsonBody, jsonError } from "@/lib/http";
+import { getUserSeriesOr404 } from "@/lib/series-entries";
 
-const STATUSES = ["WATCHED", "WATCHING", "ABANDONED", "ON_HOLD", "PLANNED"] as const;
+type Ctx = RouteContext<"/api/me/series/[tmdbId]">;
 
 const updateSchema = z
   .object({
@@ -14,34 +17,21 @@ const updateSchema = z
   })
   .refine((d) => d.status || d.rating !== undefined, "Nothing to update");
 
-export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/[tmdbId]">) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
-
+export const PATCH = withUser(async (req, ctx: Ctx, user) => {
   const { tmdbId } = await ctx.params;
   const seriesId = Number(tmdbId);
   if (!Number.isInteger(seriesId)) {
-    return NextResponse.json({ error: "Invalid series id" }, { status: 400 });
+    return jsonError("Invalid series id");
   }
 
-  const body = await req.json().catch(() => null);
-  const parsed = updateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
+  const body = await parseJsonBody(req, updateSchema);
+  if (!body.ok) return body.response;
 
-  const { status, rating } = parsed.data;
+  const { status, rating } = body.data;
 
-  const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user.id, seriesId } },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
-  }
+  const found = await getUserSeriesOr404(user.id, seriesId);
+  if (!found.ok) return found.response;
+  const existing = found.entry;
 
   const finalStatus = status ?? existing.status;
   const finalRating = status
@@ -51,10 +41,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
     : rating;
 
   if (finalRating != null && finalStatus === "PLANNED") {
-    return NextResponse.json(
-      { error: "You cannot rate a series in your planned list." },
-      { status: 400 }
-    );
+    return jsonError("You cannot rate a series in your planned list.");
   }
 
   const entry = await prisma.userSeries.update({
@@ -117,25 +104,17 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/me/series/
 
   revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ entry, seasonsWatched, episodesWatched });
-}
+});
 
-export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/series/[tmdbId]">) {
-  const auth = await requireActiveUser();
-  if (!auth.ok) return auth.response;
-  const user = auth.user;
-
+export const DELETE = withUser(async (_req, ctx: Ctx, user) => {
   const { tmdbId } = await ctx.params;
   const seriesId = Number(tmdbId);
   if (!Number.isInteger(seriesId)) {
-    return NextResponse.json({ error: "Invalid series id" }, { status: 400 });
+    return jsonError("Invalid series id");
   }
 
-  const existing = await prisma.userSeries.findUnique({
-    where: { userId_seriesId: { userId: user.id, seriesId } },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Series is not in your list" }, { status: 404 });
-  }
+  const found = await getUserSeriesOr404(user.id, seriesId);
+  if (!found.ok) return found.response;
 
   await prisma.userSeries.delete({
     where: { userId_seriesId: { userId: user.id, seriesId } },
@@ -143,4 +122,4 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/me/serie
 
   revalidateUserPaths(user.username, seriesId);
   return NextResponse.json({ message: "Removed from your list" });
-}
+});

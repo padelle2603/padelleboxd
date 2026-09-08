@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import SearchBar from "@/components/layout/SearchBar";
 import PosterCard, { type PosterCardSeries } from "@/components/series/PosterCard";
-import { searchTv, posterUrl } from "@/lib/tmdb";
+import { searchTv } from "@/lib/tmdb";
+import { tmdbTvToCard } from "@/lib/serializers";
 
 export const metadata: Metadata = { title: "Search" };
 
@@ -15,13 +16,7 @@ export default async function SearchPage({
   let results: PosterCardSeries[] = [];
   if (query) {
     const data = await searchTv(query);
-    results = data.map((tv) => ({
-      tmdbId: tv.id,
-      name: tv.name,
-      posterUrl: posterUrl(tv.poster_path),
-      firstAirDate: tv.first_air_date,
-      tmdbRating: tv.vote_average,
-    }));
+    results = data.map(tmdbTvToCard);
   }
 
   return (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { parseJsonBody, jsonError } from "@/lib/http";
 import { hashPassword } from "@/lib/password";
 
 const registerSchema = z.object({
@@ -13,23 +14,14 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = registerSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
+  const body = await parseJsonBody(req, registerSchema);
+  if (!body.ok) return body.response;
 
-  const { username, password } = parsed.data;
+  const { username, password } = body.data;
 
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    return NextResponse.json(
-      { error: "Username is already taken" },
-      { status: 409 }
-    );
+    return jsonError("Username is already taken", 409);
   }
 
   const passwordHash = await hashPassword(password);

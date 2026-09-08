@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDbMutation } from "@/lib/useDbMutation";
+import { AUTH_EVENT } from "@/lib/client-auth";
+import ErrorBanner from "@/components/ui/ErrorBanner";
 
 export default function AuthForm({
   mode,
@@ -50,7 +52,7 @@ export default function AuthForm({
         return;
       }
       if (isLogin) {
-        window.dispatchEvent(new Event("pb:auth"));
+        window.dispatchEvent(new Event(AUTH_EVENT));
         router.push(`/u/${data.user?.username}`);
         await refresh();
       } else {
@@ -123,11 +125,7 @@ export default function AuthForm({
         </Field>
       )}
 
-      {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      <ErrorBanner message={error} />
       {success && (
         <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
           {success}
