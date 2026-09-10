@@ -10,7 +10,7 @@ const IMAGE_BASE = process.env.TMDB_IMAGE_BASE_URL ?? "https://image.tmdb.org/t/
 
 const readAccessToken = process.env.TMDB_READ_ACCESS_TOKEN;
 
-export const TMDB_CACHE_TTL_MS = 60 * 60 * 1000;
+export const TMDB_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const cacheKey = (path: string) => `tmdb:${path}`;

@@ -2,14 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import Logo from "@/components/layout/Logo";
 import UserMenu from "@/components/layout/UserMenu";
 import SearchBar from "@/components/layout/SearchBar";
 import { AUTH_EVENT, useCurrentUser } from "@/lib/client-auth";
 
 export default function Header() {
-  const pathname = usePathname();
   const { user, loaded, refresh } = useCurrentUser();
 
   useEffect(() => {
@@ -19,10 +17,6 @@ export default function Header() {
     window.addEventListener(AUTH_EVENT, onAuthChange);
     return () => window.removeEventListener(AUTH_EVENT, onAuthChange);
   }, [refresh]);
-
-  useEffect(() => {
-    void refresh();
-  }, [pathname, refresh]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur">
