@@ -49,7 +49,7 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
             !watchedSet.has(next.episode_number)
           ) {
             const releaseDays = daysUntil(next.air_date);
-            if (releaseDays === null || releaseDays <= MAX_UNRELEASED_AHEAD_DAYS) {
+            if (releaseDays !== null && releaseDays <= MAX_UNRELEASED_AHEAD_DAYS) {
               return {
                 tmdbId: seriesId,
                 name: entry.name,
@@ -98,7 +98,7 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
           if (!nextEp) continue;
 
           const releaseDays = daysUntil(nextEp.air_date);
-          if (releaseDays !== null && releaseDays > MAX_UNRELEASED_AHEAD_DAYS) continue;
+          if (releaseDays === null || releaseDays > MAX_UNRELEASED_AHEAD_DAYS) continue;
 
           return {
             tmdbId: seriesId,
