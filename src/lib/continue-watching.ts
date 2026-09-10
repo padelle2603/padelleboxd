@@ -3,7 +3,7 @@ import type { CurrentUser } from "@/lib/auth";
 import { getWatchData, seasonKey } from "@/lib/watch-data";
 import { createTtlCache } from "@/lib/ttl-cache";
 import {
-  getTvDetails,
+  getTvDetailsBatch,
   getSeasonEpisodes,
   posterUrl,
   daysUntil,
@@ -29,10 +29,12 @@ const getContinueWatchingForUserId = cache(async (userId: string) => {
 
   if (tracked.length === 0) return [];
 
+  const details = await getTvDetailsBatch(tracked.map((t) => t.seriesId));
+
   const results = await Promise.all(
     tracked.map(async (entry) => {
       try {
-        const tv = await getTvDetails(entry.seriesId);
+        const tv = details.get(entry.seriesId) ?? null;
         if (!tv?.seasons) return null;
 
         const seriesId = entry.seriesId;

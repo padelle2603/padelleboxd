@@ -171,6 +171,45 @@ export const getTvDetails = cache(async function getTvDetails(
   return data;
 });
 
+export async function getTvDetailsBatch(
+  tmdbIds: number[]
+): Promise<Map<number, TmdbTv | null>> {
+  const uniqueIds = [...new Set(tmdbIds)];
+  const result = new Map<number, TmdbTv | null>();
+  const missing: number[] = [];
+
+  for (const id of uniqueIds) {
+    const mem = memGet<TmdbTv>(cacheKey(`/tv/${id}`));
+    if (mem) result.set(id, mem);
+    else missing.push(id);
+  }
+
+  if (missing.length > 0) {
+    const entries = await prisma.tmdbCache.findMany({
+      where: { key: { in: missing.map((id) => cacheKey(`/tv/${id}`)) } },
+    });
+    const byKey = new Map(entries.map((e) => [e.key, e] as const));
+    const stale: number[] = [];
+    for (const id of missing) {
+      const entry = byKey.get(cacheKey(`/tv/${id}`));
+      if (entry && Date.now() - entry.updatedAt.getTime() <= TMDB_CACHE_TTL_MS) {
+        memSet(cacheKey(`/tv/${id}`), entry.payload);
+        result.set(id, entry.payload as TmdbTv);
+      } else {
+        stale.push(id);
+      }
+    }
+    if (stale.length > 0) {
+      const fresh = await Promise.all(
+        stale.map(async (id) => ({ id, tv: await getTvDetails(id) }))
+      );
+      for (const { id, tv } of fresh) result.set(id, tv);
+    }
+  }
+
+  return result;
+}
+
 export const getSeasonEpisodes = cache(async function getSeasonEpisodes(
   tmdbId: number,
   seasonNumber: number
